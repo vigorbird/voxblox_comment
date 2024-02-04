@@ -42,17 +42,12 @@ TsdfServer::TsdfServer(const ros::NodeHandle& nh,
   getServerConfigFromRosParam(nh_private);
 
   // Advertise topics.
-  surface_pointcloud_pub_ =
-      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >(
-          "surface_pointcloud", 1, true);
+  surface_pointcloud_pub_ =  nh_private_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("surface_pointcloud", 1, true);
   tsdf_pointcloud_pub_ =
-      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("tsdf_pointcloud",
-                                                              1, true);
+      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("tsdf_pointcloud", 1, true);
   occupancy_marker_pub_ =
-      nh_private_.advertise<visualization_msgs::MarkerArray>("occupied_nodes",
-                                                             1, true);
-  tsdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
-      "tsdf_slice", 1, true);
+      nh_private_.advertise<visualization_msgs::MarkerArray>("occupied_nodes", 1, true);
+  tsdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("tsdf_slice", 1, true);
 
   nh_private_.param("pointcloud_queue_size", pointcloud_queue_size_,
                     pointcloud_queue_size_);
@@ -146,7 +141,7 @@ TsdfServer::TsdfServer(const ros::NodeHandle& nh,
         nh_private_.createTimer(ros::Duration(publish_map_every_n_sec),
                                 &TsdfServer::publishMapEvent, this);
   }
-}
+}//end function TsdfServer构造函数
 
 void TsdfServer::getServerConfigFromRosParam(
     const ros::NodeHandle& nh_private) {
