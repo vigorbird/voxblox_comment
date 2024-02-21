@@ -34,6 +34,10 @@ template <typename ValueType>
 struct AnyIndexHashMapType {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   //AnyIndex = 3*1 int 矩阵
+  //std::unordered_map<Key,T,Hash,KeyEqual,Allocator>
+  //AnyIndex = 使用key的数据类型
+  //ValueType = value对应的数据类型
+  //AnyIndexHash = 如何对key进行编码
   typedef std::unordered_map<
       AnyIndex, ValueType, AnyIndexHash, std::equal_to<AnyIndex>,
       Eigen::aligned_allocator<std::pair<const AnyIndex, ValueType> > >

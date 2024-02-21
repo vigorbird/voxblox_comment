@@ -88,14 +88,13 @@ void TsdfIntegratorBase::setLayer(Layer<TsdfVoxel>* layer) {
 // mutex allowing it to grow during integration.
 // These temporary blocks can be merged into the layer later by calling
 // updateLayerWithStoredBlocks()
-TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(
-    const GlobalIndex& global_voxel_idx, Block<TsdfVoxel>::Ptr* last_block,
-    BlockIndex* last_block_idx) {
+TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(const GlobalIndex& global_voxel_idx, 
+                                                              Block<TsdfVoxel>::Ptr* last_block,
+                                                              BlockIndex* last_block_idx) {
   DCHECK(last_block != nullptr);
   DCHECK(last_block_idx != nullptr);
 
-  const BlockIndex block_idx =
-      getBlockIndexFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_inv_);
+  const BlockIndex block_idx = getBlockIndexFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_inv_);
 
   if ((block_idx != *last_block_idx) || (*last_block == nullptr)) {
     *last_block = layer_->getBlockPtrByIndex(block_idx);
@@ -108,15 +107,16 @@ TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(
     // To allow temp_block_map_ to grow we can only let one thread in at once
     std::lock_guard<std::mutex> lock(temp_block_mutex_);
 
-    typename Layer<TsdfVoxel>::BlockHashMap::iterator it =
-        temp_block_map_.find(block_idx);
+    typename Layer<TsdfVoxel>::BlockHashMap::iterator it = temp_block_map_.find(block_idx);
     if (it != temp_block_map_.end()) {
       *last_block = it->second;
     } else {
-      auto insert_status = temp_block_map_.emplace(
-          block_idx, std::make_shared<Block<TsdfVoxel>>(
-                         voxels_per_side_, voxel_size_,
-                         getOriginPointFromGridIndex(block_idx, block_size_)));
+      auto insert_status = temp_block_map_.emplace(block_idx, 
+                                                  std::make_shared<Block<TsdfVoxel>>(voxels_per_side_, 
+                                                                                      voxel_size_,
+                                                                                      getOriginPointFromGridIndex(block_idx, block_size_)
+                                                                                    )
+                                                  );
 
       DCHECK(insert_status.second) << "Block already exists when allocating at "
                                    << block_idx.transpose();
@@ -127,19 +127,21 @@ TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(
 
   (*last_block)->updated().set();
 
-  const VoxelIndex local_voxel_idx =
-      getLocalFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_);
+  const VoxelIndex local_voxel_idx = getLocalFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_);
 
   return &((*last_block)->getVoxelByVoxelIndex(local_voxel_idx));
-}
+
+}//end function  allocateStorageAndGetVoxelPtr
 
 // NOT thread safe
+//遍历temp_block_map_  向 block_map_插入数据，并清空temp_block_map_变量。
 void TsdfIntegratorBase::updateLayerWithStoredBlocks() {
   BlockIndex last_block_idx;
   Block<TsdfVoxel>::Ptr block = nullptr;
-
+  
+  //temp_block_map_ = std::unordered_map<Eigen::Vector3i,  Block<TsdfVoxel>::Ptr>
   for (const std::pair<const BlockIndex, Block<TsdfVoxel>::Ptr>& temp_block_pair : temp_block_map_) {
-    layer_->insertBlock(temp_block_pair);
+    layer_->insertBlock(temp_block_pair);//向block_map_中添加数据
   }
 
   temp_block_map_.clear();
@@ -229,12 +231,13 @@ float TsdfIntegratorBase::computeDistance(const Point& origin,
 }
 
 // Thread safe.
+//3d点越远则权重越小
 float TsdfIntegratorBase::getVoxelWeight(const Point& point_C) const {
-  if (config_.use_const_weight) {
+  if (config_.use_const_weight) {//默认等于 false
     return 1.0f;
   }
   const FloatingPoint dist_z = std::abs(point_C.z());
-  if (dist_z > kEpsilon) {
+  if (dist_z > kEpsilon) {//1e-6 = kEpsilon
     return 1.0f / (dist_z * dist_z);
   }
   return 0.0f;
@@ -486,46 +489,56 @@ void MergedTsdfIntegrator::integrateRays(
   insertion_timer.Stop();
 }
 
+//
 void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
                                            const Pointcloud& points_C,
                                            const Colors& colors,
-                                           const bool freespace_points,
+                                           const bool freespace_points,//默认等于false
                                            ThreadSafeIndex* index_getter) {
   DCHECK(index_getter != nullptr);
 
   size_t point_idx;
-  while (index_getter->getNextIndex(&point_idx) &&
+  //1.将点云中的点逐个取出来
+  while (index_getter->getNextIndex(&point_idx) && //是线程安全的
+        //后面这个时间判断不管，基本上没有生效
          ( std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - integration_start_time_).count() < config_.max_integration_time_s * 1000000 )
         )
   {
     const Point& point_C = points_C[point_idx];
     const Color& color = colors[point_idx];
     bool is_clearing;
-    //根据距离筛选点
+    //2.根据距离筛选点
     if (!isPointValid(point_C, freespace_points, &is_clearing)) {
       continue;
     }
 
-    const Point origin = T_G_C.getPosition();
-    const Point point_G = T_G_C * point_C;
+    const Point origin = T_G_C.getPosition();//载体原点
+    const Point point_G = T_G_C * point_C;//3d点在世界坐标系下的坐标
     // Checks to see if another ray in this scan has already started 'close'
     // to this location. If it has then we skip ray casting this point. We
     // measure if a start location is 'close' to another points by inserting
     // the point into a set of voxels. This voxel set has a resolution
     // start_voxel_subsampling_factor times higher then the voxel size.
+
     //GlobalIndex  = matrix<int64_t,3,1>
+    //3.获取global的id
     GlobalIndex global_voxel_idx;
-    global_voxel_idx = getGridIndexFromPoint<GlobalIndex>( point_G, 
-                                                            config_.start_voxel_subsampling_factor * voxel_size_inv_);
-    if (!start_voxel_approx_set_.replaceHash(global_voxel_idx)) {
+    //start_voxel_subsampling_factor = 2.0
+    global_voxel_idx = getGridIndexFromPoint<GlobalIndex>(point_G, 
+                                                          config_.start_voxel_subsampling_factor * voxel_size_inv_);
+    //start_voxel_approx_set_这个变量仅是用来判断地图中的voxel是否重复，如果两个点对应相同的                                                
+    if (!start_voxel_approx_set_.replaceHash(global_voxel_idx)) {//搜索 inline bool replaceHash(const IndexType& index) {
       continue;
     }
 
+
+    //4.构建ray_caster, 
     constexpr bool cast_from_origin = false;
+    //搜索 RayCaster实现
     RayCaster ray_caster(origin, point_G, is_clearing,
-                         config_.voxel_carving_enabled,
+                         config_.voxel_carving_enabled,//voxel_carving_enabled = true
                          config_.max_ray_length_m, voxel_size_inv_,
-                         config_.default_truncation_distance, cast_from_origin);
+                         config_.default_truncation_distance, cast_from_origin);//default_truncation_distance = 0.1
 
     int64_t consecutive_ray_collisions = 0;
 
@@ -545,24 +558,26 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
         break;
       }
 
-      TsdfVoxel* voxel = allocateStorageAndGetVoxelPtr(global_voxel_idx, &block, &block_idx);
+      TsdfVoxel* voxel = allocateStorageAndGetVoxelPtr(global_voxel_idx, &block, &block_idx);//非常重要的函数！！修改了 temp_block_map_变量
 
-      const float weight = getVoxelWeight(point_C);
+      const float weight = getVoxelWeight(point_C);//3d点越远则权重越小,小函数
 
       //本文件搜索 TsdfIntegratorBase::updateTsdfVoxel
-      updateTsdfVoxel(origin, point_G, global_voxel_idx, color, weight, voxel);
+      updateTsdfVoxel(origin, point_G, global_voxel_idx, color, weight, voxel); //非常重要的函数！！！！！！!!!!!
     }
   }//end while
 }//end function  integrateFunction
 
-void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
-                                             const Pointcloud& points_C,
-                                             const Colors& colors,
-                                             const bool freespace_points) {
+
+//使用多个线程处理点云数据
+void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,//点云对应的位姿
+                                             const Pointcloud& points_C,//点云的xyz坐标
+                                             const Colors& colors,//点云对应的颜色
+                                             const bool freespace_points) {//默认等于false
   timing::Timer integrate_timer("integrate/fast");
   CHECK_EQ(points_C.size(), colors.size());
 
-  integration_start_time_ = std::chrono::steady_clock::now();
+  integration_start_time_ = std::chrono::steady_clock::now();//整个代码就这里被赋值了！！！！
 
   //clear_checks_every_n_frames  = 默认 1
   static int64_t reset_counter = 0;
@@ -573,12 +588,13 @@ void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
   }
 
   //integration_order_mode = mixed
-  std::unique_ptr<ThreadSafeIndex> index_getter( ThreadSafeIndexFactory::get(config_.integration_order_mode, points_C) );
+  std::unique_ptr<ThreadSafeIndex> index_getter( ThreadSafeIndexFactory::get(config_.integration_order_mode, points_C) );//只是做了简单的变量赋值
 
   std::list<std::thread> integration_threads;
   //config_.integrator_threads应该默认等于1
   for (size_t i = 0; i < config_.integrator_threads; ++i) {
-    integration_threads.emplace_back(&FastTsdfIntegrator::integrateFunction,
+    //1.
+    integration_threads.emplace_back(&FastTsdfIntegrator::integrateFunction,//非常重要的函数！！！！！！！！！！！！！！！！！！
                                      this, 
                                      T_G_C, 
                                      points_C, 
@@ -594,7 +610,10 @@ void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
   integrate_timer.Stop();
 
   timing::Timer insertion_timer("inserting_missed_blocks");
-  updateLayerWithStoredBlocks();//搜索 TsdfIntegratorBase::updateLayerWithStoredBlocks() {
+  //2.遍历temp_block_map_  向 block_map_插入数据，并清空temp_block_map_变量。
+  //本文件搜索 TsdfIntegratorBase::updateLayerWithStoredBlocks() {
+  updateLayerWithStoredBlocks();
+
   insertion_timer.Stop();
 }//end function integratePointCloud
 

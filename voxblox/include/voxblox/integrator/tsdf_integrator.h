@@ -109,6 +109,9 @@ class TsdfIntegratorBase {
 
  protected:
   /// Thread safe.
+  //如果距离太小则不是valid的点
+  //如果距离适中，则是valid的点，is_clearing = false;
+  //如果距离太大，则也认为是valid的点, is_clearing = true; 
   inline bool isPointValid(const Point& point_C, const bool freespace_point,//in
                            bool* is_clearing) const {//out
     DCHECK(is_clearing != nullptr);
@@ -117,6 +120,7 @@ class TsdfIntegratorBase {
     if (ray_distance < config_.min_ray_length_m) {
       return false;
     } else if (ray_distance > config_.max_ray_length_m) {//config_.max_ray_length_m = 5.0
+      //config_.allow_clear  = true
       if (config_.allow_clear || freespace_point) {
         *is_clearing = true;
         return true;
@@ -127,7 +131,7 @@ class TsdfIntegratorBase {
       *is_clearing = freespace_point;
       return true;
     }
-  }
+  }//end function isPointValid
 
   /**
    * Will return a pointer to a voxel located at global_voxel_idx in the tsdf
@@ -182,7 +186,7 @@ class TsdfIntegratorBase {
    * Temporary block storage, used to hold blocks that need to be created while
    * integrating a new pointcloud
    */
-  Layer<TsdfVoxel>::BlockHashMap temp_block_map_;
+  Layer<TsdfVoxel>::BlockHashMap temp_block_map_;//搜索 struct TsdfVoxel {
 
   /**
    * We need to prevent simultaneous access to the voxels in the map. We could
@@ -325,7 +329,9 @@ class FastTsdfIntegrator : public TsdfIntegratorBase {
    * casting only occurs if no ray has been cast from this location for this
    * scan.
    */
-  //Eigen::Matrix<int64_t, 3, 1>  = GlobalIndex
+  //Eigen::Matrix<int64_t, 3, 1>  = GlobalIndex，表示key的数据类型
+  //搜索 struct LongIndexHash {， 这个数据应该是为了对key进行编码
+  //作者这是使用了一种比较快的数据结构来保证set的删除和添加速度更快
   ApproxHashSet<masked_bits_, full_reset_threshold_, GlobalIndex, LongIndexHash> start_voxel_approx_set_;
 
   /**

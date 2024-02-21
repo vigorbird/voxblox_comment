@@ -217,8 +217,8 @@ void TsdfServer::processPointCloudMessageAndInsert( const sensor_msgs::PointClou
     }
   }
 
-  Pointcloud points_C;
-  Colors colors;
+  Pointcloud points_C;//主要是为了得到这两个变量
+  Colors colors;//Colors = std::vector<COLOR>
   timing::Timer ptcloud_timer("ptcloud_preprocess");
 
   // Convert differently depending on RGB or I type.
@@ -294,6 +294,7 @@ void TsdfServer::processPointCloudMessageAndInsert( const sensor_msgs::PointClou
     ROS_INFO("Integrating a pointcloud with %lu points.", points_C.size());
   }
 
+  //2.非常重要的函数！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！！
   ros::WallTime start = ros::WallTime::now();
   integratePointcloud(T_G_C_refined, points_C, colors, is_freespace_pointcloud);//is_freespace_pointcloud = false默认
   ros::WallTime end = ros::WallTime::now();
@@ -303,15 +304,16 @@ void TsdfServer::processPointCloudMessageAndInsert( const sensor_msgs::PointClou
              tsdf_map_->getTsdfLayer().getNumberOfAllocatedBlocks());
   }
 
+  //3.删除mesh和voxel地图一些距离载体比较远的元素
   timing::Timer block_remove_timer("remove_distant_blocks");
-  tsdf_map_->getTsdfLayerPtr()->removeDistantBlocks(
-      T_G_C.getPosition(), max_block_distance_from_body_);
-  mesh_layer_->clearDistantMesh(T_G_C.getPosition(),
-                                max_block_distance_from_body_);
+  //遍历全局block_map地图，判断全局地图哪些voxel距离当前载体太远，则删除这些voxel，好像这个函数并没有起作用，因为max_distance太大了
+  tsdf_map_->getTsdfLayerPtr()->removeDistantBlocks(T_G_C.getPosition(), max_block_distance_from_body_);
+  //遍历全局mesh地图， 判断全局地图哪些点距离当前载体太远，则删除这些点，好像这个函数并没有起作用，因为max_distance太大了
+  mesh_layer_->clearDistantMesh(T_G_C.getPosition(), max_block_distance_from_body_);
   block_remove_timer.Stop();
 
   // Callback for inheriting classes.
-  newPoseCallback(T_G_C);
+  newPoseCallback(T_G_C);//do nothing
 }//
 
 // Checks if we can get the next message from queue.

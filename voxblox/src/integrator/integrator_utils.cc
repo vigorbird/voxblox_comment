@@ -19,7 +19,7 @@ ThreadSafeIndex::ThreadSafeIndex(size_t number_of_points)
 
 MixedThreadSafeIndex::MixedThreadSafeIndex(size_t number_of_points)
     : ThreadSafeIndex(number_of_points),
-      number_of_groups_(number_of_points / step_size_) {}
+      number_of_groups_(number_of_points / step_size_) {}//step_size_ = 1<<10
 
 //Pointcloud 等价于std::vector<Eigen:::Vector3f>
 SortedThreadSafeIndex::SortedThreadSafeIndex(const Pointcloud& points_C): ThreadSafeIndex(points_C.size()) 
@@ -47,7 +47,7 @@ bool ThreadSafeIndex::getNextIndex(size_t* idx) {
   if (sequential_idx >= number_of_points_) {
     return false;
   } else {
-    *idx = getNextIndexImpl(sequential_idx);
+    *idx = getNextIndexImpl(sequential_idx);//这个函数就在下面
     return true;
   }
 }
@@ -55,6 +55,7 @@ bool ThreadSafeIndex::getNextIndex(size_t* idx) {
 void ThreadSafeIndex::reset() { atomic_idx_.store(0); }
 
 size_t MixedThreadSafeIndex::getNextIndexImpl(size_t sequential_idx) {
+  //其中 number_of_groups_ = number_of_points / step_size_
   if (number_of_groups_ * step_size_ <= sequential_idx) {
     return sequential_idx;
   }

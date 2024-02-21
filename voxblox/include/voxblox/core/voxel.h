@@ -23,7 +23,7 @@ struct EsdfVoxel {
    * Whether the voxel was copied from the TSDF (false) or created from a pose
    * or some other source (true). This member is not serialized!!!
    */
-  bool hallucinated = false;
+  bool hallucinated = false;//hallucinated = 产生幻觉
   bool in_queue = false;
   bool fixed = false;
 

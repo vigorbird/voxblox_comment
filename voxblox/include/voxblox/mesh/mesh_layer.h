@@ -130,12 +130,12 @@ class MeshLayer {
     mesh_map_.erase(computeBlockIndexFromCoordinates(coords));
   }
 
+  //
   void clearDistantMesh(const Point& center, const double max_distance) {
     // we clear the mesh, but do not delete it from the map as the empty mesh
     // must be sent to rviz so it is also cleared there
     for (std::pair<const BlockIndex, typename Mesh::Ptr>& kv : mesh_map_) {
-      if ((kv.second->origin - center).squaredNorm() >
-          max_distance * max_distance) {
+      if ((kv.second->origin - center).squaredNorm() > max_distance * max_distance) {
         kv.second->clear();
         kv.second->updated = true;
       }
@@ -305,7 +305,7 @@ class MeshLayer {
   // Derived types.
   FloatingPoint block_size_inv_;
 
-  MeshMap mesh_map_;//等价于std::unordered_map
+  MeshMap mesh_map_;//MeshMap 等价于 std::unordered_map<Eigne::Vector3i, Mesh::Ptr>
 };
 
 }  // namespace voxblox

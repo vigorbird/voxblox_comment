@@ -19,6 +19,7 @@ namespace Update {
 
 /** An n x n x n container holding VoxelType. It is aware of its 3D position and
  * contains functions for accessing voxels by position and index */
+//这个是voxel的集合 是一个正方形内所有voxel的数据集合
 template <typename VoxelType>
 class Block {
  public:
@@ -204,13 +205,13 @@ class Block {
   void serializeProto(BlockProto* proto) const;
 
   // Base parameters.
-  const size_t voxels_per_side_;
-  const FloatingPoint voxel_size_;
+  const size_t voxels_per_side_;//正方向每个面有多少个voxel
+  const FloatingPoint voxel_size_;//一个voxel有大
   Point origin_;
 
   // Derived, cached parameters.
   FloatingPoint voxel_size_inv_;
-  FloatingPoint block_size_;
+  FloatingPoint block_size_;// = 这个正方形的长宽高
   FloatingPoint block_size_inv_;
 
   /// Is set to true when data is updated.

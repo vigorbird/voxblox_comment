@@ -27,7 +27,7 @@ class Layer {
 
   typedef std::shared_ptr<Layer> Ptr;
   typedef Block<VoxelType> BlockType;
-  typedef typename AnyIndexHashMapType<typename BlockType::Ptr>::type BlockHashMap;//AnyIndexHashMapType = std:unordered_map
+  typedef typename AnyIndexHashMapType<typename BlockType::Ptr>::type BlockHashMap;//AnyIndexHashMapType = std:unordered_map<Eigen::Vector3i, BlockType::Ptr>
   typedef typename std::pair<BlockIndex, typename BlockType::Ptr> BlockMapPair;
 
   explicit Layer(FloatingPoint voxel_size, size_t voxels_per_side)
@@ -148,9 +148,7 @@ class Layer {
     return allocateNewBlock(computeBlockIndexFromCoordinates(coords));
   }
 
-  inline void insertBlock(
-      const std::pair<const BlockIndex, typename Block<VoxelType>::Ptr>&
-          block_pair) {
+  inline void insertBlock(const std::pair<const BlockIndex, typename Block<VoxelType>::Ptr>&  block_pair) {
     auto insert_status = block_map_.insert(block_pair);
 
     DCHECK(insert_status.second) << "Block already exists when inserting at "
@@ -166,19 +164,18 @@ class Layer {
     block_map_.erase(computeBlockIndexFromCoordinates(coords));
   }
 
+  //遍历全局地图，判断全局地图哪些voxel距离当前载体太远，则删除这些voxel，好像这个函数并没有起作用，因为max_distance太大了
   void removeDistantBlocks(const Point& center, const double max_distance) {
     AlignedVector<BlockIndex> needs_erasing;
-    for (const std::pair<const BlockIndex, typename BlockType::Ptr>& kv :
-         block_map_) {
-      if ((kv.second->origin() - center).squaredNorm() >
-          max_distance * max_distance) {
+    for (const std::pair<const BlockIndex, typename BlockType::Ptr>& kv : block_map_) {
+      if ((kv.second->origin() - center).squaredNorm() >  max_distance * max_distance) {
         needs_erasing.push_back(kv.first);
       }
     }
     for (const BlockIndex& index : needs_erasing) {
       block_map_.erase(index);
     }
-  }
+  }//end function removeDistantBlocks
 
   void getAllAllocatedBlocks(BlockIndexList* blocks) const {
     CHECK_NOTNULL(blocks);
@@ -293,7 +290,7 @@ class Layer {
 
   std::string getType() const;
 
-  BlockHashMap block_map_;//本质是一个std::unordered_map
+  BlockHashMap block_map_;//本质是一个std::unordered_map<Eigen::Vector3i, Block<TsdfVoxel>::Ptr>
 };
 
 }  // namespace voxblox

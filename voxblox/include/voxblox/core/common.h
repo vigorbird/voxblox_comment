@@ -65,7 +65,7 @@ struct Color;
 
 // Pointcloud types for external interface.
 typedef AlignedVector<Point> Pointcloud;// = std::vector<Eigen:::Vector3f> 
-typedef AlignedVector<Color> Colors;
+typedef AlignedVector<Color> Colors;// = std::vector<COLOR>
 
 // For triangle meshing/vertex access.
 typedef size_t VertexIndex;
@@ -106,7 +106,7 @@ struct Color {
                               FloatingPoint first_weight,
                               const Color& second_color,
                               FloatingPoint second_weight) {
-                                
+
     FloatingPoint total_weight = first_weight + second_weight;
 
     first_weight /= total_weight;

@@ -101,6 +101,7 @@ class RayCaster {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
+  //RayCaster实现
   RayCaster(const Point& origin, const Point& point_G,
             const bool is_clearing_ray, const bool voxel_carving_enabled,
             const FloatingPoint max_ray_length_m,

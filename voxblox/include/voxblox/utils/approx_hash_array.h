@@ -123,10 +123,10 @@ class ApproxHashSet {
   inline bool replaceHash(const size_t& hash) {
     const size_t array_index = (hash & bit_mask_) + offset_;
 
-    if (pseudo_set_[array_index].load(std::memory_order_relaxed) == hash) {
+    if (pseudo_set_[array_index].load(std::memory_order_relaxed) == hash) {//load相当于get atomic的数值
       return false;
     } else {
-      pseudo_set_[array_index].store(hash, std::memory_order_relaxed);
+      pseudo_set_[array_index].store(hash, std::memory_order_relaxed);//store相当于设置 atomic的数值
       return true;
     }
   }
