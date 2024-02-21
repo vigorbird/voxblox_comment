@@ -31,8 +31,7 @@ namespace voxblox {
  * returned depends on your hashing function.
  * Uses at least 2^unmasked_bits * sizeof(StoreElement) bytes of ram
  */
-template <size_t unmasked_bits, typename StoredElement, typename IndexType,
-          typename IndexTypeHasher>
+template <size_t unmasked_bits, typename StoredElement, typename IndexType, typename IndexTypeHasher>
 class ApproxHashArray {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -72,8 +71,7 @@ class ApproxHashArray {
  * bytes of ram.
  * Note that the reset function is not thread safe.
  */
-template <size_t unmasked_bits, size_t full_reset_threshold, typename IndexType,
-          typename IndexTypeHasher>
+template <size_t unmasked_bits, size_t full_reset_threshold, typename IndexType, typename IndexTypeHasher>
 class ApproxHashSet {
  public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -177,6 +175,7 @@ class ApproxHashSet {
 
   IndexTypeHasher hasher_;
 };
+
 }  // namespace voxblox
 
 #endif  // VOXBLOX_UTILS_APPROX_HASH_ARRAY_H_

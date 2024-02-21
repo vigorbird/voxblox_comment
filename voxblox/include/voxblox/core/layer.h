@@ -27,8 +27,7 @@ class Layer {
 
   typedef std::shared_ptr<Layer> Ptr;
   typedef Block<VoxelType> BlockType;
-  typedef
-      typename AnyIndexHashMapType<typename BlockType::Ptr>::type BlockHashMap;
+  typedef typename AnyIndexHashMapType<typename BlockType::Ptr>::type BlockHashMap;//AnyIndexHashMapType = std:unordered_map
   typedef typename std::pair<BlockIndex, typename BlockType::Ptr> BlockMapPair;
 
   explicit Layer(FloatingPoint voxel_size, size_t voxels_per_side)
@@ -191,16 +190,18 @@ class Layer {
     }
   }
 
+  //BlockIndexList = std::vector<Eigen::Vector3i>
   void getAllUpdatedBlocks(Update::Status bit, BlockIndexList* blocks) const {
     CHECK_NOTNULL(blocks);
     blocks->clear();
-    for (const std::pair<const BlockIndex, typename BlockType::Ptr>& kv :
-         block_map_) {
+    //BlockIndex = 3*1 int 矩阵
+    //block_map_数据类型是一个 std::unordered_map
+    for (const std::pair<const BlockIndex, typename BlockType::Ptr>& kv : block_map_) {
       if (kv.second->updated()[bit]) {
         blocks->emplace_back(kv.first);
       }
     }
-  }
+  }//end function getAllUpdatedBlocks
 
   size_t getNumberOfAllocatedBlocks() const { return block_map_.size(); }
 
@@ -292,7 +293,7 @@ class Layer {
 
   std::string getType() const;
 
-  BlockHashMap block_map_;
+  BlockHashMap block_map_;//本质是一个std::unordered_map
 };
 
 }  // namespace voxblox

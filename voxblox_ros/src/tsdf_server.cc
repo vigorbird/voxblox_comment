@@ -39,39 +39,42 @@ TsdfServer::TsdfServer(const ros::NodeHandle& nh,
       pointcloud_queue_size_(1),
       num_subscribers_tsdf_map_(0),
       transformer_(nh, nh_private) {
+
   getServerConfigFromRosParam(nh_private);
 
   // Advertise topics.
+  //发送的topic
+  //A colored pointcloud of the voxels that are close to a surface.
   surface_pointcloud_pub_ =  nh_private_.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("surface_pointcloud", 1, true);
-  tsdf_pointcloud_pub_ =
-      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("tsdf_pointcloud", 1, true);
-  occupancy_marker_pub_ =
-      nh_private_.advertise<visualization_msgs::MarkerArray>("occupied_nodes", 1, true);
+  //Visualizes the location of the allocated voxels in the TSDF.
+  occupancy_marker_pub_ = nh_private_.advertise<visualization_msgs::MarkerArray>("occupied_nodes", 1, true);
+  //Outputs a 2D horizontal slice of the TSDF colored by the stored distance value.
   tsdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("tsdf_slice", 1, true);
-
-  nh_private_.param("pointcloud_queue_size", pointcloud_queue_size_,
-                    pointcloud_queue_size_);
-  pointcloud_sub_ = nh_.subscribe("pointcloud", pointcloud_queue_size_,
-                                  &TsdfServer::insertPointcloud, this);
-
+  //A visualization topic showing the mesh produced from the tsdf in a form that can be seen in RViz.
   mesh_pub_ = nh_private_.advertise<voxblox_msgs::Mesh>("mesh", 1, true);
-
   // Publishing/subscribing to a layer from another node (when using this as
   // a library, for example within a planner).
-  tsdf_map_pub_ =
-      nh_private_.advertise<voxblox_msgs::Layer>("tsdf_map_out", 1, false);
-  tsdf_map_sub_ = nh_private_.subscribe("tsdf_map_in", 1,
-                                        &TsdfServer::tsdfMapCallback, this);
-  nh_private_.param("publish_tsdf_map", publish_tsdf_map_, publish_tsdf_map_);
 
+  //订阅的topic
+  nh_private_.param("pointcloud_queue_size", pointcloud_queue_size_, pointcloud_queue_size_);
+  //输入的点云
+  pointcloud_sub_ = nh_.subscribe("pointcloud", pointcloud_queue_size_, &TsdfServer::insertPointcloud, this);
+  //Replaces the current TSDF layer with that from this topic. 这个回调函数好像是接收到地图之后然后再发布出去
+  //发布出去时候使用的 publisher 是 tsdf_pointcloud_pub_
+  //A pointcloud showing all allocated voxels.
+  tsdf_pointcloud_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("tsdf_pointcloud", 1, true);
+  tsdf_map_sub_ = nh_private_.subscribe("tsdf_map_in", 1, &TsdfServer::tsdfMapCallback, this);
+  
+
+  //默认是false
   if (use_freespace_pointcloud_) {
     // points that are not inside an object, but may also not be on a surface.
     // These will only be used to mark freespace beyond the truncation distance.
-    freespace_pointcloud_sub_ =
-        nh_.subscribe("freespace_pointcloud", pointcloud_queue_size_,
-                      &TsdfServer::insertFreespacePointcloud, this);
+    freespace_pointcloud_sub_ = nh_.subscribe("freespace_pointcloud", pointcloud_queue_size_,
+                                                &TsdfServer::insertFreespacePointcloud, this);
   }
 
+  //默认是false
   if (enable_icp_) {
     icp_transform_pub_ = nh_private_.advertise<geometry_msgs::TransformStamped>(
         "icp_transform", 1, true);
@@ -82,64 +85,54 @@ TsdfServer::TsdfServer(const ros::NodeHandle& nh,
   }
 
   // Initialize TSDF Map and integrator.
+  //搜索 explicit TsdfMap(const Config& config)， 构造函数就是简单赋值几个参数
   tsdf_map_.reset(new TsdfMap(config));
 
   std::string method("merged");
   nh_private_.param("method", method, method);
   if (method.compare("simple") == 0) {
-    tsdf_integrator_.reset(new SimpleTsdfIntegrator(
-        integrator_config, tsdf_map_->getTsdfLayerPtr()));
+    tsdf_integrator_.reset(new SimpleTsdfIntegrator(integrator_config, tsdf_map_->getTsdfLayerPtr()));
   } else if (method.compare("merged") == 0) {
-    tsdf_integrator_.reset(new MergedTsdfIntegrator(
-        integrator_config, tsdf_map_->getTsdfLayerPtr()));
-  } else if (method.compare("fast") == 0) {
-    tsdf_integrator_.reset(new FastTsdfIntegrator(
-        integrator_config, tsdf_map_->getTsdfLayerPtr()));
+    tsdf_integrator_.reset(new MergedTsdfIntegrator(integrator_config, tsdf_map_->getTsdfLayerPtr()));
+  } else if (method.compare("fast") == 0) {//默认是fast方法
+    tsdf_integrator_.reset(new FastTsdfIntegrator(integrator_config, tsdf_map_->getTsdfLayerPtr()));
   } else {
-    tsdf_integrator_.reset(new SimpleTsdfIntegrator(
-        integrator_config, tsdf_map_->getTsdfLayerPtr()));
+    tsdf_integrator_.reset(new SimpleTsdfIntegrator(integrator_config, tsdf_map_->getTsdfLayerPtr()));
   }
 
-  mesh_layer_.reset(new MeshLayer(tsdf_map_->block_size()));
+  mesh_layer_.reset(new MeshLayer(tsdf_map_->block_size()));//构造函数就是简单赋值几个参数
 
-  mesh_integrator_.reset(new MeshIntegrator<TsdfVoxel>(
-      mesh_config, tsdf_map_->getTsdfLayerPtr(), mesh_layer_.get()));
+  mesh_integrator_.reset(new MeshIntegrator<TsdfVoxel>( mesh_config, tsdf_map_->getTsdfLayerPtr(), mesh_layer_.get()));
 
-  icp_.reset(new ICP(getICPConfigFromRosParam(nh_private)));
+  icp_.reset(new ICP(getICPConfigFromRosParam(nh_private)));//构造函数就是简单赋值几个参数
 
   // Advertise services.
-  generate_mesh_srv_ = nh_private_.advertiseService(
-      "generate_mesh", &TsdfServer::generateMeshCallback, this);
-  clear_map_srv_ = nh_private_.advertiseService(
-      "clear_map", &TsdfServer::clearMapCallback, this);
-  save_map_srv_ = nh_private_.advertiseService(
-      "save_map", &TsdfServer::saveMapCallback, this);
-  load_map_srv_ = nh_private_.advertiseService(
-      "load_map", &TsdfServer::loadMapCallback, this);
-  publish_pointclouds_srv_ = nh_private_.advertiseService(
-      "publish_pointclouds", &TsdfServer::publishPointcloudsCallback, this);
-  publish_tsdf_map_srv_ = nh_private_.advertiseService(
-      "publish_map", &TsdfServer::publishTsdfMapCallback, this);
+  nh_private_.param("publish_tsdf_map", publish_tsdf_map_, publish_tsdf_map_);
+  generate_mesh_srv_ = nh_private_.advertiseService( "generate_mesh", &TsdfServer::generateMeshCallback, this);
+  clear_map_srv_ = nh_private_.advertiseService("clear_map", &TsdfServer::clearMapCallback, this);
+  save_map_srv_ = nh_private_.advertiseService("save_map", &TsdfServer::saveMapCallback, this);
+  load_map_srv_ = nh_private_.advertiseService("load_map", &TsdfServer::loadMapCallback, this);
+  publish_pointclouds_srv_ = nh_private_.advertiseService("publish_pointclouds", &TsdfServer::publishPointcloudsCallback, this);
+  publish_tsdf_map_srv_ = nh_private_.advertiseService("publish_map", &TsdfServer::publishTsdfMapCallback, this);
 
   // If set, use a timer to progressively integrate the mesh.
+  //定时更新一次mesh
+  //默认设置等于1.0
   double update_mesh_every_n_sec = 1.0;
-  nh_private_.param("update_mesh_every_n_sec", update_mesh_every_n_sec,
-                    update_mesh_every_n_sec);
-
+  nh_private_.param("update_mesh_every_n_sec", update_mesh_every_n_sec, update_mesh_every_n_sec);
   if (update_mesh_every_n_sec > 0.0) {
-    update_mesh_timer_ =
-        nh_private_.createTimer(ros::Duration(update_mesh_every_n_sec),
-                                &TsdfServer::updateMeshEvent, this);
+    //Create a timer which will call a callback at the specified rate. 
+    update_mesh_timer_ =  nh_private_.createTimer(ros::Duration(update_mesh_every_n_sec),
+                                                   &TsdfServer::updateMeshEvent, this);
   }
 
+  //定时发送一次mesh
+  tsdf_map_pub_ =  nh_private_.advertise<voxblox_msgs::Layer>("tsdf_map_out", 1, false);
   double publish_map_every_n_sec = 1.0;
-  nh_private_.param("publish_map_every_n_sec", publish_map_every_n_sec,
-                    publish_map_every_n_sec);
-
+  nh_private_.param("publish_map_every_n_sec", publish_map_every_n_sec, publish_map_every_n_sec);
   if (publish_map_every_n_sec > 0.0) {
-    publish_map_timer_ =
-        nh_private_.createTimer(ros::Duration(publish_map_every_n_sec),
-                                &TsdfServer::publishMapEvent, this);
+    publish_map_timer_ = nh_private_.createTimer(ros::Duration(publish_map_every_n_sec), 
+                                                &TsdfServer::publishMapEvent, this);
   }
 }//end function TsdfServer构造函数
 
@@ -205,16 +198,18 @@ void TsdfServer::getServerConfigFromRosParam(
   color_map_->setMaxValue(intensity_max_value);
 }
 
-void TsdfServer::processPointCloudMessageAndInsert(
-    const sensor_msgs::PointCloud2::Ptr& pointcloud_msg,
-    const Transformation& T_G_C, const bool is_freespace_pointcloud) {
+//is_freespace_pointcloud 默认等于 false
+void TsdfServer::processPointCloudMessageAndInsert( const sensor_msgs::PointCloud2::Ptr& pointcloud_msg,
+                                                    const Transformation& T_G_C, 
+                                                    const bool is_freespace_pointcloud) {
   // Convert the PCL pointcloud into our awesome format.
 
   // Horrible hack fix to fix color parsing colors in PCL.
   bool color_pointcloud = false;
   bool has_intensity = false;
+  //1.将彩色点云进行格式转换
   for (size_t d = 0; d < pointcloud_msg->fields.size(); ++d) {
-    if (pointcloud_msg->fields[d].name == std::string("rgb")) {
+    if (pointcloud_msg->fields[d].name == std::string("rgb")) {//我们希望进入这个条件！！！！！
       pointcloud_msg->fields[d].datatype = sensor_msgs::PointField::FLOAT32;
       color_pointcloud = true;
     } else if (pointcloud_msg->fields[d].name == std::string("intensity")) {
@@ -227,11 +222,12 @@ void TsdfServer::processPointCloudMessageAndInsert(
   timing::Timer ptcloud_timer("ptcloud_preprocess");
 
   // Convert differently depending on RGB or I type.
-  if (color_pointcloud) {
+  if (color_pointcloud) {//我们希望进入这个条件
     pcl::PointCloud<pcl::PointXYZRGB> pointcloud_pcl;
     // pointcloud_pcl is modified below:
     pcl::fromROSMsg(*pointcloud_msg, pointcloud_pcl);
-    convertPointcloud(pointcloud_pcl, color_map_, &points_C, &colors);
+    convertPointcloud(pointcloud_pcl, color_map_, //in
+                      &points_C, &colors);//out， points_C只有点的xyz坐标， colors = 每个点的颜色
   } else if (has_intensity) {
     pcl::PointCloud<pcl::PointXYZI> pointcloud_pcl;
     // pointcloud_pcl is modified below:
@@ -246,6 +242,7 @@ void TsdfServer::processPointCloudMessageAndInsert(
   ptcloud_timer.Stop();
 
   Transformation T_G_C_refined = T_G_C;
+  //默认不进入这个条件
   if (enable_icp_) {
     timing::Timer icp_timer("icp");
     if (!accumulate_icp_corrections_) {
@@ -298,7 +295,7 @@ void TsdfServer::processPointCloudMessageAndInsert(
   }
 
   ros::WallTime start = ros::WallTime::now();
-  integratePointcloud(T_G_C_refined, points_C, colors, is_freespace_pointcloud);
+  integratePointcloud(T_G_C_refined, points_C, colors, is_freespace_pointcloud);//is_freespace_pointcloud = false默认
   ros::WallTime end = ros::WallTime::now();
   if (verbose_) {
     ROS_INFO("Finished integrating in %f seconds, have %lu blocks.",
@@ -315,12 +312,12 @@ void TsdfServer::processPointCloudMessageAndInsert(
 
   // Callback for inheriting classes.
   newPoseCallback(T_G_C);
-}
+}//
 
 // Checks if we can get the next message from queue.
-bool TsdfServer::getNextPointcloudFromQueue(
-    std::queue<sensor_msgs::PointCloud2::Ptr>* queue,
-    sensor_msgs::PointCloud2::Ptr* pointcloud_msg, Transformation* T_G_C) {
+bool TsdfServer::getNextPointcloudFromQueue( std::queue<sensor_msgs::PointCloud2::Ptr>* queue,
+                                            sensor_msgs::PointCloud2::Ptr* pointcloud_msg, 
+                                            Transformation* T_G_C) {
   const size_t kMaxQueueSize = 10;
   if (queue->empty()) {
     return false;
@@ -345,10 +342,10 @@ bool TsdfServer::getNextPointcloudFromQueue(
   return false;
 }
 
-void TsdfServer::insertPointcloud(
-    const sensor_msgs::PointCloud2::Ptr& pointcloud_msg_in) {
-  if (pointcloud_msg_in->header.stamp - last_msg_time_ptcloud_ >
-      min_time_between_msgs_) {
+void TsdfServer::insertPointcloud( const sensor_msgs::PointCloud2::Ptr& pointcloud_msg_in) {
+  
+  //min_time_between_msgs_ 默认参数等于 0
+  if (pointcloud_msg_in->header.stamp - last_msg_time_ptcloud_ >  min_time_between_msgs_) {
     last_msg_time_ptcloud_ = pointcloud_msg_in->header.stamp;
     // So we have to process the queue anyway... Push this back.
     pointcloud_queue_.push(pointcloud_msg_in);
@@ -357,11 +354,13 @@ void TsdfServer::insertPointcloud(
   Transformation T_G_C;
   sensor_msgs::PointCloud2::Ptr pointcloud_msg;
   bool processed_any = false;
-  while (
-      getNextPointcloudFromQueue(&pointcloud_queue_, &pointcloud_msg, &T_G_C)) {
+  //从点云队列中获取最前面的点云，并从tf树中寻找着一帧点云的位姿
+  while ( getNextPointcloudFromQueue(&pointcloud_queue_, //in
+                                    &pointcloud_msg, &T_G_C)) //out
+  {
     constexpr bool is_freespace_pointcloud = false;
     processPointCloudMessageAndInsert(pointcloud_msg, T_G_C,
-                                      is_freespace_pointcloud);
+                                      is_freespace_pointcloud);//非常重要的函数！！！！！！！！！！！！！！！
     processed_any = true;
   }
 
@@ -378,7 +377,7 @@ void TsdfServer::insertPointcloud(
     ROS_INFO_STREAM(
         "Layer memory: " << tsdf_map_->getTsdfLayer().getMemorySize());
   }
-}
+}//end fnction insertPointcloud
 
 void TsdfServer::insertFreespacePointcloud(
     const sensor_msgs::PointCloud2::Ptr& pointcloud_msg_in) {
@@ -493,6 +492,7 @@ void TsdfServer::updateMesh() {
   timing::Timer generate_mesh_timer("mesh/update");
   constexpr bool only_mesh_updated_blocks = true;
   constexpr bool clear_updated_flag = true;
+  //搜索  void generateMesh(bool only_mesh_updated_blocks, bool clear_updated_flag) {
   mesh_integrator_->generateMesh(only_mesh_updated_blocks, clear_updated_flag);
   generate_mesh_timer.Stop();
 
@@ -612,6 +612,7 @@ bool TsdfServer::publishTsdfMapCallback(std_srvs::Empty::Request& /*request*/,
   return true;
 }
 
+//搜索 void TsdfServer::updateMesh() {
 void TsdfServer::updateMeshEvent(const ros::TimerEvent& /*event*/) {
   updateMesh();
 }
@@ -634,17 +635,17 @@ void TsdfServer::clear() {
 void TsdfServer::tsdfMapCallback(const voxblox_msgs::Layer& layer_msg) {
   timing::Timer receive_map_timer("map/receive_tsdf");
 
-  bool success =
-      deserializeMsgToLayer<TsdfVoxel>(layer_msg, tsdf_map_->getTsdfLayerPtr());
+  bool success = deserializeMsgToLayer<TsdfVoxel>(layer_msg, tsdf_map_->getTsdfLayerPtr());
 
   if (!success) {
     ROS_ERROR_THROTTLE(10, "Got an invalid TSDF map message!");
   } else {
     ROS_INFO_ONCE("Got an TSDF map from ROS topic!");
+    //默认参数 = false
     if (publish_pointclouds_on_update_) {
       publishPointclouds();
     }
   }
-}
+}//end function tsdfMapCallback
 
 }  // namespace voxblox

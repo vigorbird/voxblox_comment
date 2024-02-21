@@ -138,8 +138,7 @@ void TsdfIntegratorBase::updateLayerWithStoredBlocks() {
   BlockIndex last_block_idx;
   Block<TsdfVoxel>::Ptr block = nullptr;
 
-  for (const std::pair<const BlockIndex, Block<TsdfVoxel>::Ptr>&
-           temp_block_pair : temp_block_map_) {
+  for (const std::pair<const BlockIndex, Block<TsdfVoxel>::Ptr>& temp_block_pair : temp_block_map_) {
     layer_->insertBlock(temp_block_pair);
   }
 
@@ -147,15 +146,14 @@ void TsdfIntegratorBase::updateLayerWithStoredBlocks() {
 }
 
 // Updates tsdf_voxel. Thread safe.
-void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,
-                                         const Point& point_G,
-                                         const GlobalIndex& global_voxel_idx,
+void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,//载体在世界坐标系下的坐标
+                                         const Point& point_G,//点在世界坐标系下的坐标
+                                         const GlobalIndex& global_voxel_idx,// GlobalIndex = Eigen::Matrix<int64_t, 3,1 >
                                          const Color& color, const float weight,
                                          TsdfVoxel* tsdf_voxel) {
   DCHECK(tsdf_voxel != nullptr);
 
-  const Point voxel_center =
-      getCenterPointFromGridIndex(global_voxel_idx, voxel_size_);
+  const Point voxel_center = getCenterPointFromGridIndex(global_voxel_idx, voxel_size_);//根据voxel id 得到这个voxel在世界坐标系下的中心点坐标
 
   const float sdf = computeDistance(origin, point_G, voxel_center);
 
@@ -164,9 +162,10 @@ void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,
   // that in getVoxelWeight as here we have the actual SDF for the voxel
   // already computed.
   const FloatingPoint dropoff_epsilon = voxel_size_;
+  //use_weight_dropoff = 默认等于true;
   if (config_.use_weight_dropoff && sdf < -dropoff_epsilon) {
-    updated_weight = weight * (config_.default_truncation_distance + sdf) /
-                     (config_.default_truncation_distance - dropoff_epsilon);
+    //default_truncation_distance = 默认0.1
+    updated_weight = weight * (config_.default_truncation_distance + sdf) /(config_.default_truncation_distance - dropoff_epsilon);
     updated_weight = std::max(updated_weight, 0.0f);
   }
 
@@ -176,6 +175,7 @@ void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,
   // space parts of other rays which pass through the corresponding voxels.
   // This can be useful for creating a TSDF map from sparse sensor data (e.g.
   // visual features from a SLAM system). By default, this option is disabled.
+  //默认等于false 不进入这个条件
   if (config_.use_sparsity_compensation_factor) {
     if (std::abs(sdf) < config_.default_truncation_distance) {
       updated_weight *= config_.sparsity_compensation_factor;
@@ -189,24 +189,25 @@ void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,
 
   // it is possible to have weights very close to zero, due to the limited
   // precision of floating points dividing by this small value can cause nans
-  if (new_weight < kFloatEpsilon) {
+  if (new_weight < kFloatEpsilon) {//kFloatEpsilon = 1e-6
     return;
   }
 
-  const float new_sdf =
-      (sdf * updated_weight + tsdf_voxel->distance * tsdf_voxel->weight) /
-      new_weight;
+  const float new_sdf = (sdf * updated_weight + tsdf_voxel->distance * tsdf_voxel->weight) / new_weight;
 
   // color blending is expensive only do it close to the surface
   if (std::abs(sdf) < config_.default_truncation_distance) {
-    tsdf_voxel->color = Color::blendTwoColors(
-        tsdf_voxel->color, tsdf_voxel->weight, color, updated_weight);
+    tsdf_voxel->color = Color::blendTwoColors( tsdf_voxel->color, tsdf_voxel->weight, 
+                                               color, updated_weight );
   }
-  tsdf_voxel->distance =
-      (new_sdf > 0.0) ? std::min(config_.default_truncation_distance, new_sdf)
-                      : std::max(-config_.default_truncation_distance, new_sdf);
+  tsdf_voxel->distance = (new_sdf > 0.0) ? std::min(config_.default_truncation_distance, new_sdf) : std::max(-config_.default_truncation_distance, new_sdf);
+  //config_.max_weight = 10000.0
   tsdf_voxel->weight = std::min(config_.max_weight, new_weight);
-}
+
+
+}//end function updateTsdfVoxel
+
+
 
 // Thread safe.
 // Figure out whether the voxel is behind or in front of the surface.
@@ -494,12 +495,13 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
 
   size_t point_idx;
   while (index_getter->getNextIndex(&point_idx) &&
-         (std::chrono::duration_cast<std::chrono::microseconds>(
-              std::chrono::steady_clock::now() - integration_start_time_)
-              .count() < config_.max_integration_time_s * 1000000)) {
+         ( std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - integration_start_time_).count() < config_.max_integration_time_s * 1000000 )
+        )
+  {
     const Point& point_C = points_C[point_idx];
     const Color& color = colors[point_idx];
     bool is_clearing;
+    //根据距离筛选点
     if (!isPointValid(point_C, freespace_points, &is_clearing)) {
       continue;
     }
@@ -511,9 +513,10 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
     // measure if a start location is 'close' to another points by inserting
     // the point into a set of voxels. This voxel set has a resolution
     // start_voxel_subsampling_factor times higher then the voxel size.
+    //GlobalIndex  = matrix<int64_t,3,1>
     GlobalIndex global_voxel_idx;
-    global_voxel_idx = getGridIndexFromPoint<GlobalIndex>(
-        point_G, config_.start_voxel_subsampling_factor * voxel_size_inv_);
+    global_voxel_idx = getGridIndexFromPoint<GlobalIndex>( point_G, 
+                                                            config_.start_voxel_subsampling_factor * voxel_size_inv_);
     if (!start_voxel_approx_set_.replaceHash(global_voxel_idx)) {
       continue;
     }
@@ -542,15 +545,15 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
         break;
       }
 
-      TsdfVoxel* voxel =
-          allocateStorageAndGetVoxelPtr(global_voxel_idx, &block, &block_idx);
+      TsdfVoxel* voxel = allocateStorageAndGetVoxelPtr(global_voxel_idx, &block, &block_idx);
 
       const float weight = getVoxelWeight(point_C);
 
+      //本文件搜索 TsdfIntegratorBase::updateTsdfVoxel
       updateTsdfVoxel(origin, point_G, global_voxel_idx, color, weight, voxel);
     }
-  }
-}
+  }//end while
+}//end function  integrateFunction
 
 void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
                                              const Pointcloud& points_C,
@@ -561,6 +564,7 @@ void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
 
   integration_start_time_ = std::chrono::steady_clock::now();
 
+  //clear_checks_every_n_frames  = 默认 1
   static int64_t reset_counter = 0;
   if ((++reset_counter) >= config_.clear_checks_every_n_frames) {
     reset_counter = 0;
@@ -568,14 +572,19 @@ void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
     voxel_observed_approx_set_.resetApproxSet();
   }
 
-  std::unique_ptr<ThreadSafeIndex> index_getter(
-      ThreadSafeIndexFactory::get(config_.integration_order_mode, points_C));
+  //integration_order_mode = mixed
+  std::unique_ptr<ThreadSafeIndex> index_getter( ThreadSafeIndexFactory::get(config_.integration_order_mode, points_C) );
 
   std::list<std::thread> integration_threads;
+  //config_.integrator_threads应该默认等于1
   for (size_t i = 0; i < config_.integrator_threads; ++i) {
     integration_threads.emplace_back(&FastTsdfIntegrator::integrateFunction,
-                                     this, T_G_C, points_C, colors,
-                                     freespace_points, index_getter.get());
+                                     this, 
+                                     T_G_C, 
+                                     points_C, 
+                                     colors,
+                                     freespace_points, 
+                                     index_getter.get());
   }
 
   for (std::thread& thread : integration_threads) {
@@ -585,9 +594,9 @@ void FastTsdfIntegrator::integratePointCloud(const Transformation& T_G_C,
   integrate_timer.Stop();
 
   timing::Timer insertion_timer("inserting_missed_blocks");
-  updateLayerWithStoredBlocks();
+  updateLayerWithStoredBlocks();//搜索 TsdfIntegratorBase::updateLayerWithStoredBlocks() {
   insertion_timer.Stop();
-}
+}//end function integratePointCloud
 
 std::string TsdfIntegratorBase::Config::print() const {
   std::stringstream ss;

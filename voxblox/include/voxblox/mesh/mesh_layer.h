@@ -28,8 +28,7 @@ class MeshLayer {
   typedef std::shared_ptr<const MeshLayer> ConstPtr;
   typedef typename AnyIndexHashMapType<Mesh::Ptr>::type MeshMap;
 
-  explicit MeshLayer(FloatingPoint block_size)
-      : block_size_(block_size), block_size_inv_(1.0 / block_size) {}
+  explicit MeshLayer(FloatingPoint block_size): block_size_(block_size), block_size_inv_(1.0 / block_size) {}
   virtual ~MeshLayer() {}
 
   // By index.
@@ -107,11 +106,13 @@ class MeshLayer {
       const Point& coords) const {
     return getGridIndexFromPoint<BlockIndex>(coords, block_size_inv_);
   }
-
+  
+  //BlockIndex 等价于 Eigen::Vector3i
   typename Mesh::Ptr allocateNewBlock(const BlockIndex& index) {
-    auto insert_status = mesh_map_.insert(std::make_pair(
-        index, std::shared_ptr<Mesh>(new Mesh(
-                   block_size_, index.cast<FloatingPoint>() * block_size_))));
+    //mesh_map_数据类型等价于 unordered_map
+    //FloatingPoint 等价于 float
+    auto insert_status = mesh_map_.insert(std::make_pair( index, 
+                                                          std::shared_ptr<Mesh>(new Mesh(block_size_, index.cast<FloatingPoint>() * block_size_))));
     DCHECK(insert_status.second)
         << "Mesh already exists when allocating at " << index.transpose();
     DCHECK(insert_status.first->second);
@@ -304,7 +305,7 @@ class MeshLayer {
   // Derived types.
   FloatingPoint block_size_inv_;
 
-  MeshMap mesh_map_;
+  MeshMap mesh_map_;//等价于std::unordered_map
 };
 
 }  // namespace voxblox

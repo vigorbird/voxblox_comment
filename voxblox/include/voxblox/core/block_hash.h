@@ -33,7 +33,7 @@ struct AnyIndexHash {
 template <typename ValueType>
 struct AnyIndexHashMapType {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
+  //AnyIndex = 3*1 int 矩阵
   typedef std::unordered_map<
       AnyIndex, ValueType, AnyIndexHash, std::equal_to<AnyIndex>,
       Eigen::aligned_allocator<std::pair<const AnyIndex, ValueType> > >
@@ -58,7 +58,8 @@ struct LongIndexHash {
   static constexpr size_t sl2 = sl * sl;
 
   std::size_t operator()(const LongIndex& index) const {
-    return static_cast<unsigned int>(index.x() + index.y() * sl +
+    return static_cast<unsigned int>(index.x() + 
+                                     index.y() * sl +
                                      index.z() * sl2);
   }
 };

@@ -13,8 +13,8 @@
 namespace voxblox {
 
 namespace Update {
-/// Status of which derived things still need to be updated.
-enum Status { kMap, kMesh, kEsdf, kCount };
+  /// Status of which derived things still need to be updated.
+  enum Status { kMap, kMesh, kEsdf, kCount };
 }  // namespace Update
 
 /** An n x n x n container holding VoxelType. It is aware of its 3D position and
@@ -169,8 +169,11 @@ class Block {
 
   bool has_data() const { return has_data_; }
 
+  //bitset就像一个bool类型的数组一样，但是有空间优化
+  //bitset中的每个元素都能单独被访问
   const std::bitset<Update::kCount>& updated() const { return updated_; }
   std::bitset<Update::kCount>& updated() { return updated_; }
+
   bool& has_data() { return has_data_; }
 
   void set_updated(const std::bitset<Update::kCount>& updated) {
@@ -211,7 +214,7 @@ class Block {
   FloatingPoint block_size_inv_;
 
   /// Is set to true when data is updated.
-  std::bitset<Update::kCount> updated_;
+  std::bitset<Update::kCount> updated_;//Update::kCount表示有多少位 = 3
 };
 
 }  // namespace voxblox

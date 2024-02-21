@@ -129,8 +129,7 @@ bool Transformer::lookupTransformQueue(const ros::Time& timestamp,
   }
   // Try to match the transforms in the queue.
   bool match_found = false;
-  std::deque<geometry_msgs::TransformStamped>::iterator it =
-      transform_queue_.begin();
+  std::deque<geometry_msgs::TransformStamped>::iterator it = transform_queue_.begin();
   for (; it != transform_queue_.end(); ++it) {
     // If the current transform is newer than the requested timestamp, we need
     // to break.
@@ -178,8 +177,7 @@ bool Transformer::lookupTransformQueue(const ros::Time& timestamp,
         static_cast<FloatingPoint>(offset_oldest_ns) /
         static_cast<FloatingPoint>(offset_newest_ns + offset_oldest_ns);
 
-    Transformation::Vector6 diff_vector =
-        (T_G_D_oldest.inverse() * T_G_D_newest).log();
+    Transformation::Vector6 diff_vector = (T_G_D_oldest.inverse() * T_G_D_newest).log();
     T_G_D = T_G_D_oldest * Transformation::exp(t_diff_ratio * diff_vector);
   }
 
@@ -192,6 +190,6 @@ bool Transformer::lookupTransformQueue(const ros::Time& timestamp,
   // message in place.
   transform_queue_.erase(transform_queue_.begin(), it);
   return true;
-}
+}//end function lookupTransformQueue
 
 }  // namespace voxblox

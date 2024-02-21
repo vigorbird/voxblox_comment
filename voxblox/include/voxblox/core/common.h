@@ -45,26 +45,26 @@ typedef int64_t LongIndexElement;
 typedef Eigen::Matrix<FloatingPoint, 3, 1> Point;
 typedef Eigen::Matrix<FloatingPoint, 3, 1> Ray;
 
-typedef Eigen::Matrix<IndexElement, 3, 1> AnyIndex;
-typedef AnyIndex VoxelIndex;
-typedef AnyIndex BlockIndex;
-typedef AnyIndex SignedIndex;
+typedef Eigen::Matrix<IndexElement, 3, 1> AnyIndex;//IndexElement = int
+typedef AnyIndex VoxelIndex;//3*1 int 矩阵
+typedef AnyIndex BlockIndex;//3*1 int 矩阵
+typedef AnyIndex SignedIndex;//3*1 int 矩阵
 
-typedef Eigen::Matrix<LongIndexElement, 3, 1> LongIndex;
-typedef LongIndex GlobalIndex;
+typedef Eigen::Matrix<LongIndexElement, 3, 1> LongIndex;//int64_t  = LongIndexElement
+typedef LongIndex GlobalIndex;//GlobalIndex = Eigen::Matrix<int64_t, 3,1 >
 
 typedef std::pair<BlockIndex, VoxelIndex> VoxelKey;
 
-typedef AlignedVector<AnyIndex> IndexVector;
-typedef IndexVector BlockIndexList;
-typedef IndexVector VoxelIndexList;
+typedef AlignedVector<AnyIndex> IndexVector;//IndexVector = std::vector<Eigen::Vector3i>
+typedef IndexVector BlockIndexList;//BlockIndexList = std::vector<Eigen::Vector3i>
+typedef IndexVector VoxelIndexList;//VoxelIndexList = std::vector<Eigen::Vector3i>
 typedef AlignedVector<LongIndex> LongIndexVector;
 typedef LongIndexVector GlobalIndexVector;
 
 struct Color;
 
 // Pointcloud types for external interface.
-typedef AlignedVector<Point> Pointcloud;
+typedef AlignedVector<Point> Pointcloud;// = std::vector<Eigen:::Vector3f> 
 typedef AlignedVector<Color> Colors;
 
 // For triangle meshing/vertex access.
@@ -106,20 +106,17 @@ struct Color {
                               FloatingPoint first_weight,
                               const Color& second_color,
                               FloatingPoint second_weight) {
+                                
     FloatingPoint total_weight = first_weight + second_weight;
 
     first_weight /= total_weight;
     second_weight /= total_weight;
 
     Color new_color;
-    new_color.r = static_cast<uint8_t>(
-        round(first_color.r * first_weight + second_color.r * second_weight));
-    new_color.g = static_cast<uint8_t>(
-        round(first_color.g * first_weight + second_color.g * second_weight));
-    new_color.b = static_cast<uint8_t>(
-        round(first_color.b * first_weight + second_color.b * second_weight));
-    new_color.a = static_cast<uint8_t>(
-        round(first_color.a * first_weight + second_color.a * second_weight));
+    new_color.r = static_cast<uint8_t>( round(first_color.r * first_weight + second_color.r * second_weight) );
+    new_color.g = static_cast<uint8_t>( round(first_color.g * first_weight + second_color.g * second_weight) );
+    new_color.b = static_cast<uint8_t>( round(first_color.b * first_weight + second_color.b * second_weight) );
+    new_color.a = static_cast<uint8_t>( round(first_color.a * first_weight + second_color.a * second_weight) );
 
     return new_color;
   }

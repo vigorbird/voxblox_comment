@@ -32,10 +32,11 @@ class TsdfMap {
     std::string print() const;
   };
 
+  //
   explicit TsdfMap(const Config& config)
       : tsdf_layer_(new Layer<TsdfVoxel>(config.tsdf_voxel_size,
-                                         config.tsdf_voxels_per_side)),
-        interpolator_(tsdf_layer_.get()) {
+                                         config.tsdf_voxels_per_side)),//Layer构造函数就是简单赋值几个配置参数
+        interpolator_(tsdf_layer_.get()) {//构造函数搜索 Interpolator<VoxelType>::Interpolator(const Layer<VoxelType>* layer)，就只简单做了赋值
     block_size_ = config.tsdf_voxel_size * config.tsdf_voxels_per_side;
   }
 

@@ -125,10 +125,11 @@ inline Color convertColor(const pcl::PointXYZ& /*point*/,
 
 /// Convert pointclouds of different PCL types to a voxblox pointcloud.
 template <typename PCLPoint>
-inline void convertPointcloud(
-    const typename pcl::PointCloud<PCLPoint>& pointcloud_pcl,
-    const std::shared_ptr<ColorMap>& color_map, Pointcloud* points_C,
-    Colors* colors) {
+inline void convertPointcloud( const typename pcl::PointCloud<PCLPoint>& pointcloud_pcl,
+                               const std::shared_ptr<ColorMap>& color_map, 
+                               Pointcloud* points_C,
+                               Colors* colors) 
+{
   points_C->reserve(pointcloud_pcl.size());
   colors->reserve(pointcloud_pcl.size());
   for (size_t i = 0; i < pointcloud_pcl.points.size(); ++i) {
@@ -138,8 +139,7 @@ inline void convertPointcloud(
     points_C->push_back(Point(pointcloud_pcl.points[i].x,
                               pointcloud_pcl.points[i].y,
                               pointcloud_pcl.points[i].z));
-    colors->emplace_back(
-        convertColor<PCLPoint>(pointcloud_pcl.points[i], color_map));
+    colors->emplace_back( convertColor<PCLPoint>(pointcloud_pcl.points[i], color_map));
   }
 }
 

@@ -131,13 +131,16 @@ class MeshIntegrator {
 
   /// Generates mesh from the tsdf layer.
   void generateMesh(bool only_mesh_updated_blocks, bool clear_updated_flag) {
+    
     CHECK(!clear_updated_flag || (sdf_layer_mutable_ != nullptr))
         << "If you would like to modify the updated flag in the blocks, please "
         << "use the constructor that provides a non-const link to the sdf "
         << "layer!";
+    //BlockIndexList = std::vector<Eigen::Vector3i>
     BlockIndexList all_tsdf_blocks;
     if (only_mesh_updated_blocks) {
-      sdf_layer_const_->getAllUpdatedBlocks(Update::kMesh, &all_tsdf_blocks);
+      sdf_layer_const_->getAllUpdatedBlocks(Update::kMesh, //in
+                                            &all_tsdf_blocks);//out
     } else {
       sdf_layer_const_->getAllAllocatedBlocks(&all_tsdf_blocks);
     }
@@ -147,20 +150,23 @@ class MeshIntegrator {
       mesh_layer_->allocateMeshPtrByIndex(block_index);
     }
 
-    std::unique_ptr<ThreadSafeIndex> index_getter(
-        new MixedThreadSafeIndex(all_tsdf_blocks.size()));
+    std::unique_ptr<ThreadSafeIndex> index_getter( new MixedThreadSafeIndex(all_tsdf_blocks.size()) );
 
     std::list<std::thread> integration_threads;
+    //integrator_threads 默认应该是等于 1
     for (size_t i = 0; i < config_.integrator_threads; ++i) {
-      integration_threads.emplace_back(
-          &MeshIntegrator::generateMeshBlocksFunction, this, all_tsdf_blocks,
-          clear_updated_flag, index_getter.get());
+      integration_threads.emplace_back( &MeshIntegrator::generateMeshBlocksFunction, 
+                                      this, 
+                                      all_tsdf_blocks,
+                                      clear_updated_flag, 
+                                      index_getter.get());
     }
 
     for (std::thread& thread : integration_threads) {
       thread.join();
     }
-  }
+  }//end function generateMesh
+
 
   void generateMeshBlocksFunction(const BlockIndexList& all_tsdf_blocks,
                                   bool clear_updated_flag,
@@ -176,12 +182,12 @@ class MeshIntegrator {
       const BlockIndex& block_idx = all_tsdf_blocks[list_idx];
       updateMeshForBlock(block_idx);
       if (clear_updated_flag) {
-        typename Block<VoxelType>::Ptr block =
-            sdf_layer_mutable_->getBlockPtrByIndex(block_idx);
+        typename Block<VoxelType>::Ptr block = sdf_layer_mutable_->getBlockPtrByIndex(block_idx);
         block->updated().reset(Update::kMesh);
       }
     }
-  }
+
+  }//end function generateMeshBlocksFunction
 
   void extractBlockMesh(typename Block<VoxelType>::ConstPtr block,
                         Mesh::Ptr mesh) {

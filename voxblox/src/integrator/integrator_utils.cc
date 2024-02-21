@@ -5,7 +5,7 @@ namespace voxblox {
 ThreadSafeIndex* ThreadSafeIndexFactory::get(const std::string& mode,
                                              const Pointcloud& points_C) {
   if (mode == "mixed") {
-    return new MixedThreadSafeIndex(points_C.size());
+    return new MixedThreadSafeIndex(points_C.size());//构造函数只是做了变量的赋值
   } else if (mode == "sorted") {
     return new SortedThreadSafeIndex(points_C);
   } else {
@@ -21,15 +21,18 @@ MixedThreadSafeIndex::MixedThreadSafeIndex(size_t number_of_points)
     : ThreadSafeIndex(number_of_points),
       number_of_groups_(number_of_points / step_size_) {}
 
-SortedThreadSafeIndex::SortedThreadSafeIndex(const Pointcloud& points_C)
-    : ThreadSafeIndex(points_C.size()) {
+//Pointcloud 等价于std::vector<Eigen:::Vector3f>
+SortedThreadSafeIndex::SortedThreadSafeIndex(const Pointcloud& points_C): ThreadSafeIndex(points_C.size()) 
+{
+  //indices_and_squared_norms_ 数据类型 = std::vector<std::pair<size_t, double>>
   indices_and_squared_norms_.reserve(points_C.size());
   size_t idx = 0;
   for (const Point& point_C : points_C) {
-    indices_and_squared_norms_.emplace_back(idx, point_C.squaredNorm());
+    indices_and_squared_norms_.emplace_back(idx, point_C.squaredNorm());//squaredNorm = 矩阵各个元素的平方和
     ++idx;
   }
 
+  //然后按照点的距离进行排序
   std::sort(
       indices_and_squared_norms_.begin(), indices_and_squared_norms_.end(),
       [](const std::pair<size_t, double>& a,
@@ -39,7 +42,7 @@ SortedThreadSafeIndex::SortedThreadSafeIndex(const Pointcloud& points_C)
 // returns true if index is valid, false otherwise
 bool ThreadSafeIndex::getNextIndex(size_t* idx) {
   DCHECK(idx != nullptr);
-  size_t sequential_idx = atomic_idx_.fetch_add(1);
+  size_t sequential_idx = atomic_idx_.fetch_add(1);//atomic_idx_变量线程安全 + 1
 
   if (sequential_idx >= number_of_points_) {
     return false;

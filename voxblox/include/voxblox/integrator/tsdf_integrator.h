@@ -109,13 +109,14 @@ class TsdfIntegratorBase {
 
  protected:
   /// Thread safe.
-  inline bool isPointValid(const Point& point_C, const bool freespace_point,
-                           bool* is_clearing) const {
+  inline bool isPointValid(const Point& point_C, const bool freespace_point,//in
+                           bool* is_clearing) const {//out
     DCHECK(is_clearing != nullptr);
     const FloatingPoint ray_distance = point_C.norm();
+    //config_.min_ray_length_m = 0.1
     if (ray_distance < config_.min_ray_length_m) {
       return false;
-    } else if (ray_distance > config_.max_ray_length_m) {
+    } else if (ray_distance > config_.max_ray_length_m) {//config_.max_ray_length_m = 5.0
       if (config_.allow_clear || freespace_point) {
         *is_clearing = true;
         return true;
@@ -324,8 +325,8 @@ class FastTsdfIntegrator : public TsdfIntegratorBase {
    * casting only occurs if no ray has been cast from this location for this
    * scan.
    */
-  ApproxHashSet<masked_bits_, full_reset_threshold_, GlobalIndex, LongIndexHash>
-      start_voxel_approx_set_;
+  //Eigen::Matrix<int64_t, 3, 1>  = GlobalIndex
+  ApproxHashSet<masked_bits_, full_reset_threshold_, GlobalIndex, LongIndexHash> start_voxel_approx_set_;
 
   /**
    * This set records which voxels a scans rays have passed through. If a ray
