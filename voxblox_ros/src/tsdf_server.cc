@@ -123,7 +123,7 @@ TsdfServer::TsdfServer(const ros::NodeHandle& nh,
   if (update_mesh_every_n_sec > 0.0) {
     //Create a timer which will call a callback at the specified rate. 
     update_mesh_timer_ =  nh_private_.createTimer(ros::Duration(update_mesh_every_n_sec),
-                                                   &TsdfServer::updateMeshEvent, this);
+                                                   &TsdfServer::updateMeshEvent, this);//非常重要的函数！！！！
   }
 
   //定时发送一次mesh
@@ -495,7 +495,7 @@ void TsdfServer::updateMesh() {
   constexpr bool only_mesh_updated_blocks = true;
   constexpr bool clear_updated_flag = true;
   //搜索  void generateMesh(bool only_mesh_updated_blocks, bool clear_updated_flag) {
-  mesh_integrator_->generateMesh(only_mesh_updated_blocks, clear_updated_flag);
+  mesh_integrator_->generateMesh(only_mesh_updated_blocks, clear_updated_flag);//very important fucntion!!!!!!!!
   generate_mesh_timer.Stop();
 
   timing::Timer publish_mesh_timer("mesh/publish");

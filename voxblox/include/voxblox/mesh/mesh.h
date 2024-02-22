@@ -158,7 +158,7 @@ struct Mesh {
   Point origin;
 
   bool updated;
-};
+};//end struct mesh
 
 }  // namespace voxblox
 

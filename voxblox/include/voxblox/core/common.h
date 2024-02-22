@@ -209,15 +209,13 @@ inline GlobalIndex getGlobalVoxelIndexFromBlockAndVoxelIndex(
                      voxel_index.cast<LongIndexElement>());
 }
 
-inline BlockIndex getBlockIndexFromGlobalVoxelIndex(
-    const GlobalIndex& global_voxel_idx, FloatingPoint voxels_per_side_inv) {
+inline BlockIndex getBlockIndexFromGlobalVoxelIndex( const GlobalIndex& global_voxel_idx,
+                                                     FloatingPoint voxels_per_side_inv) {
+  //BlockIndex = 3*1 int 矩阵
   return BlockIndex(
-      std::floor(static_cast<FloatingPoint>(global_voxel_idx.x()) *
-                 voxels_per_side_inv),
-      std::floor(static_cast<FloatingPoint>(global_voxel_idx.y()) *
-                 voxels_per_side_inv),
-      std::floor(static_cast<FloatingPoint>(global_voxel_idx.z()) *
-                 voxels_per_side_inv));
+      std::floor(static_cast<FloatingPoint>(global_voxel_idx.x()) * voxels_per_side_inv),//voxels_per_side_inv = 默认值 16
+      std::floor(static_cast<FloatingPoint>(global_voxel_idx.y()) * voxels_per_side_inv),
+      std::floor(static_cast<FloatingPoint>(global_voxel_idx.z()) * voxels_per_side_inv));
 }
 
 inline bool isPowerOfTwo(int x) { return (x & (x - 1)) == 0; }
@@ -227,28 +225,24 @@ inline bool isPowerOfTwo(int x) { return (x & (x - 1)) == 0; }
  * NOTE: assumes that voxels_per_side is a power of 2 and uses a bitwise and as
  * a computationally cheap substitute for the modulus operator
  */
-inline VoxelIndex getLocalFromGlobalVoxelIndex(
-    const GlobalIndex& global_voxel_idx, const int voxels_per_side) {
+inline VoxelIndex getLocalFromGlobalVoxelIndex(  const GlobalIndex& global_voxel_idx, const int voxels_per_side) {
   // add a big number to the index to make it positive
-  constexpr int offset = 1 << (8 * sizeof(IndexElement) - 1);
+  constexpr int offset = 1 << (8 * sizeof(IndexElement) - 1);//IndexElement = int
 
   CHECK(isPowerOfTwo(voxels_per_side));
-
+  //类似于对voxel_per_side取余
   return VoxelIndex((global_voxel_idx.x() + offset) & (voxels_per_side - 1),
                     (global_voxel_idx.y() + offset) & (voxels_per_side - 1),
                     (global_voxel_idx.z() + offset) & (voxels_per_side - 1));
 }
 
-inline void getBlockAndVoxelIndexFromGlobalVoxelIndex(
-    const GlobalIndex& global_voxel_idx, const int voxels_per_side,
-    BlockIndex* block_index, VoxelIndex* voxel_index) {
+inline void getBlockAndVoxelIndexFromGlobalVoxelIndex( const GlobalIndex& global_voxel_idx, const int voxels_per_side,
+                                                        BlockIndex* block_index, VoxelIndex* voxel_index) {
   CHECK_NOTNULL(block_index);
   CHECK_NOTNULL(voxel_index);
   const FloatingPoint voxels_per_side_inv = 1.0 / voxels_per_side;
-  *block_index =
-      getBlockIndexFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_inv);
-  *voxel_index =
-      getLocalFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side);
+  *block_index = getBlockIndexFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_inv);
+  *voxel_index = getLocalFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side);
 }
 
 // Math functions.

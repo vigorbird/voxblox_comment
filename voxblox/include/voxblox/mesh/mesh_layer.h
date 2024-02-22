@@ -75,6 +75,7 @@ class MeshLayer {
    * Gets a mesh by the mesh index it if already exists,
    * otherwise allocates a new one.
    */
+  //判断现有地图中是否有这个block，如果有这个block直接返回这个block的指针，否则向地图插入这个block，并返回对应的指针
   inline typename Mesh::Ptr allocateMeshPtrByIndex(const BlockIndex& index) {
     typename MeshMap::iterator it = mesh_map_.find(index);
     if (it != mesh_map_.end()) {
@@ -109,7 +110,7 @@ class MeshLayer {
   
   //BlockIndex 等价于 Eigen::Vector3i
   typename Mesh::Ptr allocateNewBlock(const BlockIndex& index) {
-    //mesh_map_数据类型等价于 unordered_map
+    //mesh_map_数据类型等价于  std::unordered_map<Eigne::Vector3i, Mesh::Ptr>
     //FloatingPoint 等价于 float
     auto insert_status = mesh_map_.insert(std::make_pair( index, 
                                                           std::shared_ptr<Mesh>(new Mesh(block_size_, index.cast<FloatingPoint>() * block_size_))));

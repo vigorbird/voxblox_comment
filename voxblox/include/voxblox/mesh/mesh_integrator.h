@@ -130,6 +130,7 @@ class MeshIntegrator {
   }
 
   /// Generates mesh from the tsdf layer.
+  //在我们看的代码流程里 输入的两个参数都是bool值
   void generateMesh(bool only_mesh_updated_blocks, bool clear_updated_flag) {
     
     CHECK(!clear_updated_flag || (sdf_layer_mutable_ != nullptr))
@@ -137,16 +138,19 @@ class MeshIntegrator {
         << "use the constructor that provides a non-const link to the sdf "
         << "layer!";
     //BlockIndexList = std::vector<Eigen::Vector3i>
-    BlockIndexList all_tsdf_blocks;
+    BlockIndexList all_tsdf_blocks;//被更新了的blokc的全局id
+    //1.在我们看到代码流程里面是true
     if (only_mesh_updated_blocks) {
+      //从block_map_中找到哪些block被更新了，并获取这些block的id
       sdf_layer_const_->getAllUpdatedBlocks(Update::kMesh, //in
                                             &all_tsdf_blocks);//out
     } else {
       sdf_layer_const_->getAllAllocatedBlocks(&all_tsdf_blocks);
     }
 
-    // Allocate all the mesh memory
+    // 2.Allocate all the mesh memory
     for (const BlockIndex& block_index : all_tsdf_blocks) {
+      //判断现有地图中是否有这个block，如果有这个block直接返回这个block的指针，否则向地图插入这个block，并返回对应的指针
       mesh_layer_->allocateMeshPtrByIndex(block_index);
     }
 
@@ -154,8 +158,9 @@ class MeshIntegrator {
 
     std::list<std::thread> integration_threads;
     //integrator_threads 默认应该是等于 1
+    //3.
     for (size_t i = 0; i < config_.integrator_threads; ++i) {
-      integration_threads.emplace_back( &MeshIntegrator::generateMeshBlocksFunction, 
+      integration_threads.emplace_back( &MeshIntegrator::generateMeshBlocksFunction, //整个代码就这里调用了这个函数！
                                       this, 
                                       all_tsdf_blocks,
                                       clear_updated_flag, 
@@ -178,33 +183,33 @@ class MeshIntegrator {
         << "layer!";
 
     size_t list_idx;
+    //遍历所有要更新的block全局id
     while (index_getter->getNextIndex(&list_idx)) {
       const BlockIndex& block_idx = all_tsdf_blocks[list_idx];
-      updateMeshForBlock(block_idx);
-      if (clear_updated_flag) {
-        typename Block<VoxelType>::Ptr block = sdf_layer_mutable_->getBlockPtrByIndex(block_idx);
+      updateMeshForBlock(block_idx);//整个代码就这里调用了这个函数， 非常重要函数！！！！！！！！
+      if (clear_updated_flag) {//在我们的代码流程里面是true
+        typename Block<VoxelType>::Ptr block = sdf_layer_mutable_->getBlockPtrByIndex(block_idx);//得到block对应的指针
         block->updated().reset(Update::kMesh);
       }
     }
 
   }//end function generateMeshBlocksFunction
 
-  void extractBlockMesh(typename Block<VoxelType>::ConstPtr block,
-                        Mesh::Ptr mesh) {
+  //
+  void extractBlockMesh(typename Block<VoxelType>::ConstPtr block, Mesh::Ptr mesh) {
     DCHECK(block != nullptr);
     DCHECK(mesh != nullptr);
 
-    IndexElement vps = block->voxels_per_side();
-    VertexIndex next_mesh_index = 0;
+    IndexElement vps = block->voxels_per_side();//IndexElement = int
+    VertexIndex next_mesh_index = 0;//size_t = VertexIndex
 
-    VoxelIndex voxel_index;
+    VoxelIndex voxel_index;//VoxelIndex = 3*1 int 矩阵
     for (voxel_index.x() = 0; voxel_index.x() < vps - 1; ++voxel_index.x()) {
       for (voxel_index.y() = 0; voxel_index.y() < vps - 1; ++voxel_index.y()) {
-        for (voxel_index.z() = 0; voxel_index.z() < vps - 1;
-             ++voxel_index.z()) {
-          Point coords = block->computeCoordinatesFromVoxelIndex(voxel_index);
+        for (voxel_index.z() = 0; voxel_index.z() < vps - 1; ++voxel_index.z()) {
+          Point coords = block->computeCoordinatesFromVoxelIndex(voxel_index);//计算得到这个voxel中心点在全局的三维坐标
           extractMeshInsideBlock(*block, voxel_index, coords, &next_mesh_index,
-                                 mesh.get());
+                                 mesh.get());//整个代码就这里调用了这个函数
         }
       }
     }
@@ -242,47 +247,51 @@ class MeshIntegrator {
                             mesh.get());
       }
     }
-  }
+  }//end function extractBlockMesh 
 
   virtual void updateMeshForBlock(const BlockIndex& block_index) {
+    //Mesh::Ptr 本质上是共享指针
     Mesh::Ptr mesh = mesh_layer_->getMeshPtrByIndex(block_index);
     mesh->clear();
     // This block should already exist, otherwise it makes no sense to update
     // the mesh for it. ;)
-    typename Block<VoxelType>::ConstPtr block =
-        sdf_layer_const_->getBlockPtrByIndex(block_index);
+    typename Block<VoxelType>::ConstPtr block = sdf_layer_const_->getBlockPtrByIndex(block_index);
 
     if (!block) {
       LOG(ERROR) << "Trying to mesh a non-existent block at index: "
                  << block_index.transpose();
       return;
     }
-    extractBlockMesh(block, mesh);
+    extractBlockMesh(block, mesh);//整个代码就这里调用了这个函数，//非常重要的函数！！！！！
     // Update colors if needed.
-    if (config_.use_color) {
-      updateMeshColor(*block, mesh.get());
+    if (config_.use_color) {//默认这个参数是true
+      updateMeshColor(*block, mesh.get());//将voxel中的颜色赋值给mesh点的颜色, 非常重要的函数！！！！！
     }
 
     mesh->updated = true;
-  }
+  }//end function updateMeshForBlock
 
   void extractMeshInsideBlock(const Block<VoxelType>& block,
-                              const VoxelIndex& index, const Point& coords,
+                              const VoxelIndex& index,
+                              const Point& coords,//voxel对应的中心点坐标
                               VertexIndex* next_mesh_index, Mesh* mesh) {
     DCHECK(next_mesh_index != nullptr);
     DCHECK(mesh != nullptr);
 
-    Eigen::Matrix<FloatingPoint, 3, 8> cube_coord_offsets =
-        cube_index_offsets_.cast<FloatingPoint>() * voxel_size_;
-    Eigen::Matrix<FloatingPoint, 3, 8> corner_coords;
-    Eigen::Matrix<FloatingPoint, 8, 1> corner_sdf;
+    Eigen::Matrix<FloatingPoint, 3, 8> cube_coord_offsets =  cube_index_offsets_.cast<FloatingPoint>() * voxel_size_;
+    Eigen::Matrix<FloatingPoint, 3, 8> corner_coords;//相邻voxel的中心点坐标
+    Eigen::Matrix<FloatingPoint, 8, 1> corner_sdf;//每一个voxel对应的distance变量
     bool all_neighbors_observed = true;
 
+    //遍历voxel周围的8个相邻voxel
     for (unsigned int i = 0; i < 8; ++i) {
       VoxelIndex corner_index = index + cube_index_offsets_.col(i);
       const VoxelType& voxel = block.getVoxelByVoxelIndex(corner_index);
 
-      if (!utils::getSdfIfValid(voxel, config_.min_weight, &(corner_sdf(i)))) {
+      //将voxel的distance赋值给corner_sdf(i)
+      if (!utils::getSdfIfValid(voxel, config_.min_weight,//in
+                                 &(corner_sdf(i)))) //output
+      {
         all_neighbors_observed = false;
         break;
       }
@@ -291,17 +300,16 @@ class MeshIntegrator {
     }
 
     if (all_neighbors_observed) {
-      MarchingCubes::meshCube(corner_coords, corner_sdf, next_mesh_index, mesh);
+      MarchingCubes::meshCube(corner_coords, corner_sdf, next_mesh_index, mesh);//very important functinon!!!!!!
     }
-  }
+  }//end function extractMeshOnBorder
 
   void extractMeshOnBorder(const Block<VoxelType>& block,
                            const VoxelIndex& index, const Point& coords,
                            VertexIndex* next_mesh_index, Mesh* mesh) {
     DCHECK(mesh != nullptr);
 
-    Eigen::Matrix<FloatingPoint, 3, 8> cube_coord_offsets =
-        cube_index_offsets_.cast<FloatingPoint>() * voxel_size_;
+    Eigen::Matrix<FloatingPoint, 3, 8> cube_coord_offsets = cube_index_offsets_.cast<FloatingPoint>() * voxel_size_;
     Eigen::Matrix<FloatingPoint, 3, 8> corner_coords;
     Eigen::Matrix<FloatingPoint, 8, 1> corner_sdf;
     bool all_neighbors_observed = true;
@@ -329,8 +337,8 @@ class MeshIntegrator {
           if (corner_index(j) < 0) {
             block_offset(j) = -1;
             corner_index(j) = corner_index(j) + voxels_per_side_;
-          } else if (corner_index(j) >=
-                     static_cast<IndexElement>(voxels_per_side_)) {
+          } else if (corner_index(j) >=static_cast<IndexElement>(voxels_per_side_)) {
+            //IndexElement = int
             block_offset(j) = 1;
             corner_index(j) = corner_index(j) - voxels_per_side_;
           }
@@ -339,12 +347,10 @@ class MeshIntegrator {
         BlockIndex neighbor_index = block.block_index() + block_offset;
 
         if (sdf_layer_const_->hasBlock(neighbor_index)) {
-          const Block<VoxelType>& neighbor_block =
-              sdf_layer_const_->getBlockByIndex(neighbor_index);
+          const Block<VoxelType>& neighbor_block = sdf_layer_const_->getBlockByIndex(neighbor_index);
 
           CHECK(neighbor_block.isValidVoxelIndex(corner_index));
-          const VoxelType& voxel =
-              neighbor_block.getVoxelByVoxelIndex(corner_index);
+          const VoxelType& voxel = neighbor_block.getVoxelByVoxelIndex(corner_index);
 
           if (!utils::getSdfIfValid(voxel, config_.min_weight,
                                     &(corner_sdf(i)))) {
@@ -363,8 +369,9 @@ class MeshIntegrator {
     if (all_neighbors_observed) {
       MarchingCubes::meshCube(corner_coords, corner_sdf, next_mesh_index, mesh);
     }
-  }
+  }//end function  extractMeshOnBorder
 
+  //将voxel中的颜色赋值给mesh点的颜色
   void updateMeshColor(const Block<VoxelType>& block, Mesh* mesh) {
     DCHECK(mesh != nullptr);
 
@@ -373,19 +380,22 @@ class MeshIntegrator {
 
     // Use nearest-neighbor search.
     for (size_t i = 0; i < mesh->vertices.size(); i++) {
+      
       const Point& vertex = mesh->vertices[i];
-      VoxelIndex voxel_index = block.computeVoxelIndexFromCoordinates(vertex);
+      VoxelIndex voxel_index = block.computeVoxelIndexFromCoordinates(vertex);//更具点的坐标计算得到对应的voxel坐标
       if (block.isValidVoxelIndex(voxel_index)) {
-        const VoxelType& voxel = block.getVoxelByVoxelIndex(voxel_index);
-        utils::getColorIfValid(voxel, config_.min_weight, &(mesh->colors[i]));
+        //mesh顶点->voxel坐标->对应voxel数据
+        const VoxelType& voxel = block.getVoxelByVoxelIndex(voxel_index);//
+        //将voxel中的颜色赋值给mesh点的颜色
+        utils::getColorIfValid(voxel, config_.min_weight, &(mesh->colors[i]));//min_weight = 1e-4
       } else {
-        const typename Block<VoxelType>::ConstPtr neighbor_block =
-            sdf_layer_const_->getBlockPtrByCoordinates(vertex);
+        //mesh顶点->block对应指针->voxel对应的数据
+        const typename Block<VoxelType>::ConstPtr neighbor_block = sdf_layer_const_->getBlockPtrByCoordinates(vertex);
         const VoxelType& voxel = neighbor_block->getVoxelByCoordinates(vertex);
         utils::getColorIfValid(voxel, config_.min_weight, &(mesh->colors[i]));
       }
     }
-  }
+  }//end function updateMeshColor
 
  protected:
   MeshIntegratorConfig config_;

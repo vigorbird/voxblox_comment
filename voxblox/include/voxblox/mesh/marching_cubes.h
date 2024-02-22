@@ -69,6 +69,7 @@ class MarchingCubes {
     }
   }
 
+  //
   static void meshCube(const Eigen::Matrix<FloatingPoint, 3, 8>& vertex_coords,
                        const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf,
                        VertexIndex* next_index, Mesh* mesh) {
@@ -85,16 +86,13 @@ class MarchingCubes {
     interpolateEdgeVertices(vertex_coords, vertex_sdf,
                             &edge_vertex_coordinates);
 
-    const int* table_row = kTriangleTable[index];
+    const int* table_row = kTriangleTable[index];// kTriangleTable[256][16];
 
     int table_col = 0;
     while (table_row[table_col] != -1) {
-      mesh->vertices.emplace_back(
-          edge_vertex_coordinates.col(table_row[table_col + 2]));
-      mesh->vertices.emplace_back(
-          edge_vertex_coordinates.col(table_row[table_col + 1]));
-      mesh->vertices.emplace_back(
-          edge_vertex_coordinates.col(table_row[table_col]));
+      mesh->vertices.emplace_back(edge_vertex_coordinates.col(table_row[table_col + 2]));
+      mesh->vertices.emplace_back(edge_vertex_coordinates.col(table_row[table_col + 1]));
+      mesh->vertices.emplace_back(edge_vertex_coordinates.col(table_row[table_col]));
       mesh->indices.push_back(*next_index);
       mesh->indices.push_back((*next_index) + 1);
       mesh->indices.push_back((*next_index) + 2);
@@ -110,10 +108,9 @@ class MarchingCubes {
       *next_index += 3;
       table_col += 3;
     }
-  }
+  }//end function meshCube
 
-  static int calculateVertexConfiguration(
-      const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf) {
+  static int calculateVertexConfiguration(const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf) {
     return (vertex_sdf(0) < 0 ? (1 << 0) : 0) |
            (vertex_sdf(1) < 0 ? (1 << 1) : 0) |
            (vertex_sdf(2) < 0 ? (1 << 2) : 0) |
@@ -130,7 +127,7 @@ class MarchingCubes {
       Eigen::Matrix<FloatingPoint, 3, 12>* edge_coords) {
     DCHECK(edge_coords != NULL);
     for (std::size_t i = 0; i < 12; ++i) {
-      const int* pairs = kEdgeIndexPairs[i];
+      const int* pairs = kEdgeIndexPairs[i];//kEdgeIndexPairs[12][2]
       const int edge0 = pairs[0];
       const int edge1 = pairs[1];
       // Only interpolate along edges where there is a zero crossing.

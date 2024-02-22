@@ -186,7 +186,7 @@ class TsdfIntegratorBase {
    * Temporary block storage, used to hold blocks that need to be created while
    * integrating a new pointcloud
    */
-  Layer<TsdfVoxel>::BlockHashMap temp_block_map_;//搜索 struct TsdfVoxel {
+  Layer<TsdfVoxel>::BlockHashMap temp_block_map_;//BlockHashMap = std:unordered_map<Eigen::Vector3i, BlockType::Ptr>
 
   /**
    * We need to prevent simultaneous access to the voxels in the map. We could
@@ -199,6 +199,7 @@ class TsdfIntegratorBase {
    * chance of two threads needing the same lock for unrelated voxels is
    * (num_threads / (2^n)). For 8 threads and 12 bits this gives 0.2%.
    */
+  //这是一个作者自己定义的hash，其中key  = GlobalIndex， value = std::mutex， LongIndexHash = key的编码方式
   ApproxHashArray<12, std::mutex, GlobalIndex, LongIndexHash> mutexes_;
 };
 

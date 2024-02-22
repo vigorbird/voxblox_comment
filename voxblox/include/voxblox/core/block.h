@@ -63,10 +63,8 @@ class Block {
    * range when the coordinate is outside the range of this block, unlike the
    * function above.
    */
-  inline VoxelIndex computeVoxelIndexFromCoordinates(
-      const Point& coords) const {
-    VoxelIndex voxel_index =
-        getGridIndexFromPoint<VoxelIndex>(coords - origin_, voxel_size_inv_);
+  inline VoxelIndex computeVoxelIndexFromCoordinates(const Point& coords) const {
+    VoxelIndex voxel_index = getGridIndexFromPoint<VoxelIndex>(coords - origin_, voxel_size_inv_);
     return voxel_index;
   }
 
@@ -142,6 +140,8 @@ class Block {
     return voxels_[index];
   }
 
+  //输入的是local voxel的id
+  //根据voxel的id从block中取出对应的Voxel数据
   inline VoxelType& getVoxelByVoxelIndex(const VoxelIndex& index) {
     return voxels_[computeLinearIndexFromVoxelIndex(index)];
   }
@@ -192,7 +192,7 @@ class Block {
   size_t getMemorySize() const;
 
  protected:
-  std::unique_ptr<VoxelType[]> voxels_;
+  std::unique_ptr<VoxelType[]> voxels_;//非常重要的成员变量！！！
 
   // Derived, cached parameters.
   size_t num_voxels_;

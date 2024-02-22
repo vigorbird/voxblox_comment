@@ -88,16 +88,17 @@ void TsdfIntegratorBase::setLayer(Layer<TsdfVoxel>* layer) {
 // mutex allowing it to grow during integration.
 // These temporary blocks can be merged into the layer later by calling
 // updateLayerWithStoredBlocks()
-TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(const GlobalIndex& global_voxel_idx, 
-                                                              Block<TsdfVoxel>::Ptr* last_block,
-                                                              BlockIndex* last_block_idx) {
+//
+TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(const GlobalIndex& global_voxel_idx, //volxel全局索引
+                                                              Block<TsdfVoxel>::Ptr* last_block,//out
+                                                              BlockIndex* last_block_idx) {//out
   DCHECK(last_block != nullptr);
   DCHECK(last_block_idx != nullptr);
-
+  //16*16*16 voxel组成一个 block 这里作者计算得到block的全局索引
   const BlockIndex block_idx = getBlockIndexFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_inv_);
 
   if ((block_idx != *last_block_idx) || (*last_block == nullptr)) {
-    *last_block = layer_->getBlockPtrByIndex(block_idx);
+    *last_block = layer_->getBlockPtrByIndex(block_idx);//在block中寻找是否存在这个block_idx，如果不存在则返回的是空指针
     *last_block_idx = block_idx;
   }
 
@@ -107,15 +108,17 @@ TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(const GlobalIndex& 
     // To allow temp_block_map_ to grow we can only let one thread in at once
     std::lock_guard<std::mutex> lock(temp_block_mutex_);
 
+    //temp_block_map_ = std:unordered_map<Eigen::Vector3i, BlockType::Ptr>
     typename Layer<TsdfVoxel>::BlockHashMap::iterator it = temp_block_map_.find(block_idx);
     if (it != temp_block_map_.end()) {
       *last_block = it->second;
     } else {
+      //整个函数中在 updateLayerWithStoredBlocks 函数中会使用temp_block_map_这个变量，并清空这个变量
       auto insert_status = temp_block_map_.emplace(block_idx, 
                                                   std::make_shared<Block<TsdfVoxel>>(voxels_per_side_, 
                                                                                       voxel_size_,
-                                                                                      getOriginPointFromGridIndex(block_idx, block_size_)
-                                                                                    )
+                                                                                      getOriginPointFromGridIndex(block_idx, block_size_)//block_size_ = voxel_size_ * voxels_per_side_;
+                                                                                    )//Block构造函数只是赋值一些变量
                                                   );
 
       DCHECK(insert_status.second) << "Block already exists when allocating at "
@@ -125,10 +128,14 @@ TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(const GlobalIndex& 
     }
   }
 
+  //updated()返回的数据类型是 std::bitset<Update::kCount> updated_;//Update::kCount表示有多少位 = 3
+  //set 函数 Sets all bits to true 
   (*last_block)->updated().set();
-
+  
+  //得到局部的local voxel index
   const VoxelIndex local_voxel_idx = getLocalFromGlobalVoxelIndex(global_voxel_idx, voxels_per_side_);
 
+  //根据voxel的id从block中取出对应的Voxel数据
   return &((*last_block)->getVoxelByVoxelIndex(local_voxel_idx));
 
 }//end function  allocateStorageAndGetVoxelPtr
@@ -150,7 +157,7 @@ void TsdfIntegratorBase::updateLayerWithStoredBlocks() {
 // Updates tsdf_voxel. Thread safe.
 void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,//载体在世界坐标系下的坐标
                                          const Point& point_G,//点在世界坐标系下的坐标
-                                         const GlobalIndex& global_voxel_idx,// GlobalIndex = Eigen::Matrix<int64_t, 3,1 >
+                                         const GlobalIndex& global_voxel_idx,// 在射线上的voxel全局id， GlobalIndex = Eigen::Matrix<int64_t, 3,1 >
                                          const Color& color, const float weight,
                                          TsdfVoxel* tsdf_voxel) {
   DCHECK(tsdf_voxel != nullptr);
@@ -165,6 +172,7 @@ void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,//载体在世界�
   // already computed.
   const FloatingPoint dropoff_epsilon = voxel_size_;
   //use_weight_dropoff = 默认等于true;
+  //如果这个voxel在surface的后面 则重新设置要更新的权重！
   if (config_.use_weight_dropoff && sdf < -dropoff_epsilon) {
     //default_truncation_distance = 默认0.1
     updated_weight = weight * (config_.default_truncation_distance + sdf) /(config_.default_truncation_distance - dropoff_epsilon);
@@ -198,11 +206,13 @@ void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,//载体在世界�
   const float new_sdf = (sdf * updated_weight + tsdf_voxel->distance * tsdf_voxel->weight) / new_weight;
 
   // color blending is expensive only do it close to the surface
+  //default_truncation_distance = 0.1
   if (std::abs(sdf) < config_.default_truncation_distance) {
-    tsdf_voxel->color = Color::blendTwoColors( tsdf_voxel->color, tsdf_voxel->weight, 
-                                               color, updated_weight );
+    tsdf_voxel->color = Color::blendTwoColors( tsdf_voxel->color, tsdf_voxel->weight, //in
+                                               color, updated_weight );//in
   }
-  tsdf_voxel->distance = (new_sdf > 0.0) ? std::min(config_.default_truncation_distance, new_sdf) : std::max(-config_.default_truncation_distance, new_sdf);
+  tsdf_voxel->distance = (new_sdf > 0.0) ? std::min(config_.default_truncation_distance, new_sdf) : 
+                                           std::max(-config_.default_truncation_distance, new_sdf);
   //config_.max_weight = 10000.0
   tsdf_voxel->weight = std::min(config_.max_weight, new_weight);
 
@@ -216,9 +226,10 @@ void TsdfIntegratorBase::updateTsdfVoxel(const Point& origin,//载体在世界�
 // To do this, project the voxel_center onto the ray from origin to point G.
 // Then check if the the magnitude of the vector is smaller or greater than
 // the original distance...
+//详见算法实现文档
 float TsdfIntegratorBase::computeDistance(const Point& origin,
                                           const Point& point_G,
-                                          const Point& voxel_center) const {
+                                          const Point& voxel_center) const {//在射线上的voxel中心点坐标
   const Point v_voxel_origin = voxel_center - origin;
   const Point v_point_origin = point_G - origin;
 
@@ -526,7 +537,7 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
     //start_voxel_subsampling_factor = 2.0
     global_voxel_idx = getGridIndexFromPoint<GlobalIndex>(point_G, 
                                                           config_.start_voxel_subsampling_factor * voxel_size_inv_);
-    //start_voxel_approx_set_这个变量仅是用来判断地图中的voxel是否重复，如果两个点对应相同的                                                
+    //start_voxel_approx_set_这个变量仅是用来判断地图中的voxel是否重复，如果两个点对应相同的voxel那么第二个voxel会直接continue                                                
     if (!start_voxel_approx_set_.replaceHash(global_voxel_idx)) {//搜索 inline bool replaceHash(const IndexType& index) {
       continue;
     }
@@ -537,13 +548,17 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
     //搜索 RayCaster实现
     RayCaster ray_caster(origin, point_G, is_clearing,
                          config_.voxel_carving_enabled,//voxel_carving_enabled = true
-                         config_.max_ray_length_m, voxel_size_inv_,
-                         config_.default_truncation_distance, cast_from_origin);//default_truncation_distance = 0.1
+                         config_.max_ray_length_m,// = 5.0
+                         voxel_size_inv_,
+                         config_.default_truncation_distance,//default_truncation_distance = 0.1 
+                         cast_from_origin);// false
+
 
     int64_t consecutive_ray_collisions = 0;
 
     Block<TsdfVoxel>::Ptr block = nullptr;
     BlockIndex block_idx;
+    //在这条射线上进行遍历！
     while (ray_caster.nextRayIndex(&global_voxel_idx)) {
       // Check if the current voxel has been seen by any ray cast this scan.
       // If it has increment the consecutive_ray_collisions counter, otherwise
@@ -554,17 +569,20 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
       } else {
         consecutive_ray_collisions = 0;
       }
-      if (consecutive_ray_collisions > config_.max_consecutive_ray_collisions) {
+
+      if (consecutive_ray_collisions > config_.max_consecutive_ray_collisions) {//max_consecutive_ray_collisions = 默认 2
         break;
       }
 
-      TsdfVoxel* voxel = allocateStorageAndGetVoxelPtr(global_voxel_idx, &block, &block_idx);//非常重要的函数！！修改了 temp_block_map_变量
+      //5.非常重要的函数！！修改了 temp_block_map_变量
+      TsdfVoxel* voxel = allocateStorageAndGetVoxelPtr(global_voxel_idx, 
+                                                        &block, &block_idx);
 
-      const float weight = getVoxelWeight(point_C);//3d点越远则权重越小,小函数
+      const float weight = getVoxelWeight(point_C);//3d点越远则权重越小,小函数 point_C = 3d点在载体坐标系下的坐标
 
-      //本文件搜索 TsdfIntegratorBase::updateTsdfVoxel
+      //6. 本文件搜索 TsdfIntegratorBase::updateTsdfVoxel
       updateTsdfVoxel(origin, point_G, global_voxel_idx, color, weight, voxel); //非常重要的函数！！！！！！!!!!!
-    }
+    }//end 在这条射线上进行遍历
   }//end while
 }//end function  integrateFunction
 

@@ -79,7 +79,7 @@ class Layer {
   }
 
   inline typename BlockType::Ptr getBlockPtrByIndex(const BlockIndex& index) {
-    typename BlockHashMap::iterator it = block_map_.find(index);
+    typename BlockHashMap::iterator it = block_map_.find(index);//block_map_本质是一个std::unordered_map<Eigen::Vector3i, Block<TsdfVoxel>::Ptr>
     if (it != block_map_.end()) {
       return it->second;
     } else {
@@ -188,6 +188,7 @@ class Layer {
   }
 
   //BlockIndexList = std::vector<Eigen::Vector3i>
+  //从block_map_中找到哪些block被更新了，并获取这些block的id
   void getAllUpdatedBlocks(Update::Status bit, BlockIndexList* blocks) const {
     CHECK_NOTNULL(blocks);
     blocks->clear();

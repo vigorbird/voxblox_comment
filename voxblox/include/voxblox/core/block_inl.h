@@ -10,21 +10,18 @@
 namespace voxblox {
 
 template <typename VoxelType>
-size_t Block<VoxelType>::computeLinearIndexFromVoxelIndex(
-    const VoxelIndex& index) const {
-  size_t linear_index = static_cast<size_t>(
-      index.x() +
-      voxels_per_side_ * (index.y() + index.z() * voxels_per_side_));
+size_t Block<VoxelType>::computeLinearIndexFromVoxelIndex(const VoxelIndex& index) const {
+
+  size_t linear_index = static_cast<size_t>( index.x() +  voxels_per_side_ * (index.y() + index.z() * voxels_per_side_));
 
   DCHECK(index.x() >= 0 && index.x() < static_cast<int>(voxels_per_side_));
   DCHECK(index.y() >= 0 && index.y() < static_cast<int>(voxels_per_side_));
   DCHECK(index.z() >= 0 && index.z() < static_cast<int>(voxels_per_side_));
 
-  DCHECK_LT(linear_index,
-            voxels_per_side_ * voxels_per_side_ * voxels_per_side_);
+  DCHECK_LT(linear_index, voxels_per_side_ * voxels_per_side_ * voxels_per_side_);
   DCHECK_GE(linear_index, 0u);
   return linear_index;
-}
+}//
 
 template <typename VoxelType>
 VoxelIndex Block<VoxelType>::computeTruncatedVoxelIndexFromCoordinates(

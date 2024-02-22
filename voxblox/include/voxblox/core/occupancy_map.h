@@ -10,6 +10,7 @@
 #include "voxblox/core/layer.h"
 #include "voxblox/core/voxel.h"
 
+//好像这个类全局并没有被使用
 namespace voxblox {
 /// Map holding an Occupancy Layer, inspired by Octomap.
 class OccupancyMap {
