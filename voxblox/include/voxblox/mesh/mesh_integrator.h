@@ -299,13 +299,17 @@ class MeshIntegrator {
       corner_coords.col(i) = coords + cube_coord_offsets.col(i);
     }
 
+    //立方体的8个点都观测到我们才进行marching cube的建立
     if (all_neighbors_observed) {
-      MarchingCubes::meshCube(corner_coords, corner_sdf, next_mesh_index, mesh);//very important functinon!!!!!!
+      MarchingCubes::meshCube(corner_coords, //周围voxel的中心点坐标
+                              corner_sdf, //周围每个voxel对应的sdf距离
+                              next_mesh_index, mesh);//very important functinon!!!!!!
     }
   }//end function extractMeshOnBorder
 
   void extractMeshOnBorder(const Block<VoxelType>& block,
-                           const VoxelIndex& index, const Point& coords,
+                           const VoxelIndex& index, 
+                           const Point& coords,//voxel对应的中心点坐标
                            VertexIndex* next_mesh_index, Mesh* mesh) {
     DCHECK(mesh != nullptr);
 
@@ -317,9 +321,9 @@ class MeshIntegrator {
     corner_sdf.setZero();
 
     for (unsigned int i = 0; i < 8; ++i) {
-      VoxelIndex corner_index = index + cube_index_offsets_.col(i);
+      VoxelIndex corner_index = index + cube_index_offsets_.col(i);//周围相邻voxel坐标
 
-      if (block.isValidVoxelIndex(corner_index)) {
+      if (block.isValidVoxelIndex(corner_index)) {//如果voxel在block中
         const VoxelType& voxel = block.getVoxelByVoxelIndex(corner_index);
 
         if (!utils::getSdfIfValid(voxel, config_.min_weight,
@@ -331,7 +335,9 @@ class MeshIntegrator {
         corner_coords.col(i) = coords + cube_coord_offsets.col(i);
       } else {
         // We have to access a different block.
-        BlockIndex block_offset = BlockIndex::Zero();
+        //如果voxel不在block中
+        //BlockIndex = 3*1 int 矩阵
+        BlockIndex block_offset = BlockIndex::Zero();//block的偏移
 
         for (unsigned int j = 0u; j < 3u; j++) {
           if (corner_index(j) < 0) {
@@ -345,13 +351,13 @@ class MeshIntegrator {
         }
 
         BlockIndex neighbor_index = block.block_index() + block_offset;
-
+        //判断相邻的block是否存在
         if (sdf_layer_const_->hasBlock(neighbor_index)) {
           const Block<VoxelType>& neighbor_block = sdf_layer_const_->getBlockByIndex(neighbor_index);
 
           CHECK(neighbor_block.isValidVoxelIndex(corner_index));
           const VoxelType& voxel = neighbor_block.getVoxelByVoxelIndex(corner_index);
-
+          //再判断这个voxel在相邻的block中是否有效
           if (!utils::getSdfIfValid(voxel, config_.min_weight,
                                     &(corner_sdf(i)))) {
             all_neighbors_observed = false;
