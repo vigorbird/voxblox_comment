@@ -69,24 +69,24 @@ class MarchingCubes {
     }
   }
 
-  //
-  static void meshCube(const Eigen::Matrix<FloatingPoint, 3, 8>& vertex_coords,
-                       const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf,
+  //meshCube 实现
+  static void meshCube(const Eigen::Matrix<FloatingPoint, 3, 8>& vertex_coords,//周围voxel中心点的坐标，按列取
+                       const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf,//周围voxel对应的sdf距离
                        VertexIndex* next_index, Mesh* mesh) {
     DCHECK(next_index != NULL);
     DCHECK(mesh != NULL);
-    const int index = calculateVertexConfiguration(vertex_sdf);
+    const int index = calculateVertexConfiguration(vertex_sdf);//首先得到8个点是否在表面内还是外?
 
     // No edges in this cube.
     if (index == 0) {
       return;
     }
 
-    Eigen::Matrix<FloatingPoint, 3, 12> edge_vertex_coordinates;
-    interpolateEdgeVertices(vertex_coords, vertex_sdf,
+    Eigen::Matrix<FloatingPoint, 3, 12> edge_vertex_coordinates;//切边对应的顶点坐标
+    interpolateEdgeVertices(vertex_coords, vertex_sdf,//对顶点进行插值
                             &edge_vertex_coordinates);
 
-    const int* table_row = kTriangleTable[index];// kTriangleTable[256][16];
+    const int* table_row = kTriangleTable[index];// kTriangleTable[256][16]; 获取等见面如何相连， 每三个数成为一组
 
     int table_col = 0;
     while (table_row[table_col] != -1) {
@@ -121,10 +121,10 @@ class MarchingCubes {
            (vertex_sdf(7) < 0 ? (1 << 7) : 0);
   }
 
-  static void interpolateEdgeVertices(
-      const Eigen::Matrix<FloatingPoint, 3, 8>& vertex_coords,
-      const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf,
-      Eigen::Matrix<FloatingPoint, 3, 12>* edge_coords) {
+  static void interpolateEdgeVertices( const Eigen::Matrix<FloatingPoint, 3, 8>& vertex_coords,//in 正方向8个顶点的坐标
+                                       const Eigen::Matrix<FloatingPoint, 8, 1>& vertex_sdf,//in 每个顶点对应的sdf距离值
+                                       Eigen::Matrix<FloatingPoint, 3, 12>* edge_coords)//out 一共12个边，判断切哪几个边
+  {
     DCHECK(edge_coords != NULL);
     for (std::size_t i = 0; i < 12; ++i) {
       const int* pairs = kEdgeIndexPairs[i];//kEdgeIndexPairs[12][2]
@@ -133,9 +133,10 @@ class MarchingCubes {
       // Only interpolate along edges where there is a zero crossing.
       if ((vertex_sdf(edge0) < 0 && vertex_sdf(edge1) >= 0) ||
           (vertex_sdf(edge0) >= 0 && vertex_sdf(edge1) < 0))
-        edge_coords->col(i) = interpolateVertex(
-            vertex_coords.col(edge0), vertex_coords.col(edge1),
-            vertex_sdf(edge0), vertex_sdf(edge1));
+        edge_coords->col(i) = interpolateVertex( vertex_coords.col(edge0), //顶点的坐标
+                                                  vertex_coords.col(edge1),
+                                                  vertex_sdf(edge0), //顶点的权重 = 顶点的sdf距离值
+                                                  vertex_sdf(edge1));
     }
   }
 
@@ -143,9 +144,8 @@ class MarchingCubes {
    * Performs linear interpolation on two cube corners to find the approximate
    * zero crossing (surface) value.
    */
-  static inline Point interpolateVertex(const Point& vertex1,
-                                        const Point& vertex2, float sdf1,
-                                        float sdf2) {
+  static inline Point interpolateVertex(const Point& vertex1, const Point& vertex2, 
+                                        float sdf1, float sdf2) {
     static constexpr FloatingPoint kMinSdfDifference = 1e-6;
     const FloatingPoint sdf_diff = sdf1 - sdf2;
     // Only compute the actual interpolation value if the sdf_difference is not

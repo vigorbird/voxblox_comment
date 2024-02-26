@@ -195,7 +195,8 @@ class MeshIntegrator {
 
   }//end function generateMeshBlocksFunction
 
-  //
+  //给定block之后 
+  //详见算法实现文档！！！
   void extractBlockMesh(typename Block<VoxelType>::ConstPtr block, Mesh::Ptr mesh) {
     DCHECK(block != nullptr);
     DCHECK(mesh != nullptr);
@@ -204,6 +205,7 @@ class MeshIntegrator {
     VertexIndex next_mesh_index = 0;//size_t = VertexIndex
 
     VoxelIndex voxel_index;//VoxelIndex = 3*1 int 矩阵
+    //遍历这个block中的所有voxel，不包括外层的
     for (voxel_index.x() = 0; voxel_index.x() < vps - 1; ++voxel_index.x()) {
       for (voxel_index.y() = 0; voxel_index.y() < vps - 1; ++voxel_index.y()) {
         for (voxel_index.z() = 0; voxel_index.z() < vps - 1; ++voxel_index.z()) {
@@ -220,12 +222,13 @@ class MeshIntegrator {
     voxel_index.x() = vps - 1;
     for (voxel_index.z() = 0; voxel_index.z() < vps; voxel_index.z()++) {
       for (voxel_index.y() = 0; voxel_index.y() < vps; voxel_index.y()++) {
-        Point coords = block->computeCoordinatesFromVoxelIndex(voxel_index);
+        Point coords = block->computeCoordinatesFromVoxelIndex(voxel_index);//这个voxel对应的中心坐标
         extractMeshOnBorder(*block, voxel_index, coords, &next_mesh_index,
                             mesh.get());
       }
     }
 
+    //有个小的细节，这里遍历x的时候就是从0到vps-1了。是为了防止重复遍历
     // Max Y plane.
     // takes care of edge (x, y_max, z_max),
     // without corner (x_max, y_max, z_max).
@@ -289,6 +292,7 @@ class MeshIntegrator {
       const VoxelType& voxel = block.getVoxelByVoxelIndex(corner_index);
 
       //将voxel的distance赋值给corner_sdf(i)
+      //判断这个voxel是否为有效的voxel，即光线是否透过它，只要有一个
       if (!utils::getSdfIfValid(voxel, config_.min_weight,//in
                                  &(corner_sdf(i)))) //output
       {
@@ -301,7 +305,8 @@ class MeshIntegrator {
 
     //立方体的8个点都观测到我们才进行marching cube的建立
     if (all_neighbors_observed) {
-      MarchingCubes::meshCube(corner_coords, //周围voxel的中心点坐标
+      //搜索 meshCube 实现
+      MarchingCubes::meshCube(corner_coords, //周围voxel的中心点xyz坐标
                               corner_sdf, //周围每个voxel对应的sdf距离
                               next_mesh_index, mesh);//very important functinon!!!!!!
     }
