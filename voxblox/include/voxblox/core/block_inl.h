@@ -37,8 +37,7 @@ VoxelIndex Block<VoxelType>::computeTruncatedVoxelIndexFromCoordinates(
 }
 
 template <typename VoxelType>
-VoxelIndex Block<VoxelType>::computeVoxelIndexFromLinearIndex(
-    size_t linear_index) const {
+VoxelIndex Block<VoxelType>::computeVoxelIndexFromLinearIndex(size_t linear_index) const {
   int rem = linear_index;
   VoxelIndex result;
   std::div_t div_temp = std::div(rem, voxels_per_side_ * voxels_per_side_);

@@ -131,7 +131,8 @@ class MeshIntegrator {
 
   /// Generates mesh from the tsdf layer.
   //在我们看的代码流程里 输入的两个参数都是bool值
-  void generateMesh(bool only_mesh_updated_blocks, bool clear_updated_flag) {
+  void generateMesh(bool only_mesh_updated_blocks, 
+                  bool clear_updated_flag) {
     
     CHECK(!clear_updated_flag || (sdf_layer_mutable_ != nullptr))
         << "If you would like to modify the updated flag in the blocks, please "

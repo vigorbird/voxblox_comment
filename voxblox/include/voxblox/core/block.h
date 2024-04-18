@@ -81,8 +81,7 @@ class Block {
 
   /// Returns the CENTER point of the voxel.
   inline Point computeCoordinatesFromLinearIndex(size_t linear_index) const {
-    return computeCoordinatesFromVoxelIndex(
-        computeVoxelIndexFromLinearIndex(linear_index));
+    return computeCoordinatesFromVoxelIndex( computeVoxelIndexFromLinearIndex(linear_index));
   }
 
   /// Returns the CENTER point of the voxel.
