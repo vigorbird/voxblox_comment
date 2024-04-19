@@ -34,8 +34,7 @@ bool getSurfaceDistanceAlongRay(const Layer<VoxelType>& layer,
 
   while (t < max_distance) {
     const Point current_pos = ray_origin + t * ray_direction;
-    typename Block<VoxelType>::ConstPtr block_ptr =
-        layer.getBlockPtrByCoordinates(current_pos);
+    typename Block<VoxelType>::ConstPtr block_ptr = layer.getBlockPtrByCoordinates(current_pos);
     if (!block_ptr) {
       // How much should we move up by? 1 voxel? 1 block? Could be close to the
       // block boundary though....

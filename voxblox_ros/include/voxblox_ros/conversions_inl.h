@@ -39,6 +39,7 @@ void serializeLayerAsMsg(const Layer<VoxelType>& layer, const bool only_updated,
   }
 }  // namespace voxblox
 
+//deserializeMsgToLayer 函数
 template <typename VoxelType>
 bool deserializeMsgToLayer(const voxblox_msgs::Layer& msg,
                            Layer<VoxelType>* layer) {

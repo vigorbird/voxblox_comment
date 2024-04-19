@@ -79,8 +79,7 @@ void EsdfIntegrator::addNewRobotPosition(const Point& position) {
         esdf_voxel.parent.setZero();
         updated_blocks_.insert(kv.first);
       } else if (!esdf_voxel.in_queue) {
-        GlobalIndex global_index = getGlobalVoxelIndexFromBlockAndVoxelIndex(
-            kv.first, voxel_index, voxels_per_side_);
+        GlobalIndex global_index = getGlobalVoxelIndexFromBlockAndVoxelIndex(kv.first, voxel_index, voxels_per_side_);
         open_.push(global_index, esdf_voxel.distance);
       }
     }
@@ -91,6 +90,7 @@ void EsdfIntegrator::addNewRobotPosition(const Point& position) {
   clear_timer.Stop();
 }
 
+//这个函数好像没有被使用过
 void EsdfIntegrator::updateFromTsdfLayerBatch() {
   esdf_layer_->removeAllBlocks();
   BlockIndexList tsdf_blocks;
@@ -101,26 +101,29 @@ void EsdfIntegrator::updateFromTsdfLayerBatch() {
   updateFromTsdfBlocks(tsdf_blocks);
 }
 
+//clear_updated_flag等于true
 void EsdfIntegrator::updateFromTsdfLayer(bool clear_updated_flag) {
+  //从tsdf模块中获取哪些voxel被更新了
   BlockIndexList tsdf_blocks;
   tsdf_layer_->getAllUpdatedBlocks(Update::kEsdf, &tsdf_blocks);
-  tsdf_blocks.insert(tsdf_blocks.end(), updated_blocks_.begin(),
-                     updated_blocks_.end());
+  tsdf_blocks.insert(tsdf_blocks.end(), updated_blocks_.begin(), updated_blocks_.end());
   updated_blocks_.clear();
+
+
   const bool kIncremental = true;
-  updateFromTsdfBlocks(tsdf_blocks, kIncremental);
+  updateFromTsdfBlocks(tsdf_blocks, kIncremental);//这个函数在下面被实现了，非常重要！！！！！
 
   if (clear_updated_flag) {
     for (const BlockIndex& block_index : tsdf_blocks) {
       if (tsdf_layer_->hasBlock(block_index)) {
-        tsdf_layer_->getBlockByIndex(block_index)
-            .updated()
-            .reset(Update::kEsdf);
+        tsdf_layer_->getBlockByIndex(block_index).updated().reset(Update::kEsdf);
       }
     }
   }
 }
 
+//使用时incremental = true
+//这个函数的核心作用是遍历哪些block被更新了，并且更新block中的所有voxel的esdf距离
 void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
                                           bool incremental) {
   CHECK_EQ(tsdf_layer_->voxels_per_side(), esdf_layer_->voxels_per_side());
@@ -134,27 +137,25 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
   VLOG(3) << "[ESDF update]: Propagating " << tsdf_blocks.size()
           << " updated blocks from the TSDF.";
   for (const BlockIndex& block_index : tsdf_blocks) {
-    Block<TsdfVoxel>::ConstPtr tsdf_block =
-        tsdf_layer_->getBlockPtrByIndex(block_index);
+    Block<TsdfVoxel>::ConstPtr tsdf_block =  tsdf_layer_->getBlockPtrByIndex(block_index);
     if (!tsdf_block) {
       continue;
     }
 
     // Allocate the same block in the ESDF layer.
     // Block indices are the same across all layers.
-    Block<EsdfVoxel>::Ptr esdf_block =
-        esdf_layer_->allocateBlockPtrByIndex(block_index);
+    Block<EsdfVoxel>::Ptr esdf_block = esdf_layer_->allocateBlockPtrByIndex(block_index);
     esdf_block->set_updated(true);
 
+    //遍历block中的所有voxel
     const size_t num_voxels_per_block = tsdf_block->num_voxels();
     for (size_t lin_index = 0u; lin_index < num_voxels_per_block; ++lin_index) {
-      const TsdfVoxel& tsdf_voxel =
-          tsdf_block->getVoxelByLinearIndex(lin_index);
+      const TsdfVoxel& tsdf_voxel =  tsdf_block->getVoxelByLinearIndex(lin_index);
       // If this voxel is unobserved in the original map, skip it.
       if (tsdf_voxel.weight < config_.min_weight) {
         if (!incremental && config_.add_occupied_crust) {
           // Create a little crust of occupied voxels around.
-          EsdfVoxel& esdf_voxel = esdf_block->getVoxelByLinearIndex(lin_index);
+          EsdfVoxel& esdf_voxel = esdf_block->getVoxelByLinearIndex(lin_index);//从这个block中取出这个voxel
           esdf_voxel.distance = -config_.default_distance_m;
           esdf_voxel.observed = true;
           esdf_voxel.hallucinated = true;
@@ -163,13 +164,11 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
         continue;
       }
 
-      EsdfVoxel& esdf_voxel = esdf_block->getVoxelByLinearIndex(lin_index);
-      VoxelIndex voxel_index =
-          esdf_block->computeVoxelIndexFromLinearIndex(lin_index);
-      GlobalIndex global_index = getGlobalVoxelIndexFromBlockAndVoxelIndex(
-          block_index, voxel_index, voxels_per_side_);
+      EsdfVoxel& esdf_voxel = esdf_block->getVoxelByLinearIndex(lin_index);//获取对应的block
+      VoxelIndex voxel_index = esdf_block->computeVoxelIndexFromLinearIndex(lin_index);//当前voxel在block中的id
+      GlobalIndex global_index = getGlobalVoxelIndexFromBlockAndVoxelIndex(block_index, voxel_index, voxels_per_side_);//当前voxle在全局的id
 
-      const bool tsdf_fixed = isFixed(tsdf_voxel.distance);
+      const bool tsdf_fixed = isFixed(tsdf_voxel.distance);//判断距离是否小于阈值！！！
       // If there was nothing there before:
       if (!esdf_voxel.observed || esdf_voxel.hallucinated) {
         if (esdf_voxel.hallucinated) {
@@ -184,8 +183,7 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
           open_.push(global_index, esdf_voxel.distance);
         } else {
           // Not in the fixed band. Just copy the sign.
-          esdf_voxel.distance =
-              signum(tsdf_voxel.distance) * (config_.default_distance_m);
+          esdf_voxel.distance =  signum(tsdf_voxel.distance) * (config_.default_distance_m);
           esdf_voxel.fixed = false;
 
           if (incremental) {
@@ -208,48 +206,38 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
         // than it used to be.
         // (3) sign flip: tsdf and esdf have different signs, otherwise the
         // lower and raise rules apply as above.
+        //下面有两个大的条件
         if (tsdf_fixed || esdf_voxel.fixed) {
           if (!tsdf_fixed) {
             // New case: have to raise the voxel
-            esdf_voxel.distance =
-                signum(tsdf_voxel.distance) * config_.default_distance_m;
+            esdf_voxel.distance = signum(tsdf_voxel.distance) * config_.default_distance_m;
             esdf_voxel.parent.setZero();
             esdf_voxel.fixed = false;
             raise_.push(global_index);
             esdf_voxel.in_queue = true;
             open_.push(global_index, esdf_voxel.distance);
             num_raise++;
-          } else if ((esdf_voxel.distance > 0.0f &&
-                      tsdf_voxel.distance + config_.min_diff_m <
-                          esdf_voxel.distance) ||
-                     (esdf_voxel.distance <= 0.0f &&
-                      tsdf_voxel.distance - config_.min_diff_m >
-                          esdf_voxel.distance)) {
+          } else if ((esdf_voxel.distance > 0.0f && tsdf_voxel.distance + config_.min_diff_m < esdf_voxel.distance) ||
+                     (esdf_voxel.distance <= 0.0f && tsdf_voxel.distance - config_.min_diff_m > esdf_voxel.distance)) {
             // Lower.
             esdf_voxel.fixed = tsdf_fixed;
             if (esdf_voxel.fixed) {
               esdf_voxel.distance = tsdf_voxel.distance;
             } else {
-              esdf_voxel.distance =
-                  signum(tsdf_voxel.distance) * config_.default_distance_m;
+              esdf_voxel.distance = signum(tsdf_voxel.distance) * config_.default_distance_m;
             }
             esdf_voxel.parent.setZero();
             esdf_voxel.in_queue = true;
             open_.push(global_index, esdf_voxel.distance);
             num_lower++;
-          } else if ((esdf_voxel.distance > 0.0f &&
-                      tsdf_voxel.distance - config_.min_diff_m >
-                          esdf_voxel.distance) ||
-                     (esdf_voxel.distance <= 0.0f &&
-                      tsdf_voxel.distance + config_.min_diff_m <
-                          esdf_voxel.distance)) {
+          } else if ((esdf_voxel.distance > 0.0f && tsdf_voxel.distance - config_.min_diff_m > esdf_voxel.distance) ||
+                     (esdf_voxel.distance <= 0.0f && tsdf_voxel.distance + config_.min_diff_m < esdf_voxel.distance)) {
             // Raise.
             esdf_voxel.fixed = tsdf_fixed;
             if (esdf_voxel.fixed) {
               esdf_voxel.distance = tsdf_voxel.distance;
             } else {
-              esdf_voxel.distance =
-                  signum(tsdf_voxel.distance) * config_.default_distance_m;
+              esdf_voxel.distance = signum(tsdf_voxel.distance) * config_.default_distance_m;
             }
             esdf_voxel.parent.setZero();
             raise_.push(global_index);
@@ -261,8 +249,7 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
           // This means ESDF was positive and TSDF is negative.
           // So lower.
           if (tsdf_voxel.distance < esdf_voxel.distance) {
-            esdf_voxel.distance =
-                signum(tsdf_voxel.distance) * config_.default_distance_m;
+            esdf_voxel.distance = signum(tsdf_voxel.distance) * config_.default_distance_m;
             esdf_voxel.parent.setZero();
             esdf_voxel.in_queue = true;
             open_.push(global_index, esdf_voxel.distance);
@@ -270,8 +257,7 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
           } else {
             // Otherwise ESDF was negative and TSDF is positive.
             // So raise.
-            esdf_voxel.distance =
-                signum(tsdf_voxel.distance) * config_.default_distance_m;
+            esdf_voxel.distance = signum(tsdf_voxel.distance) * config_.default_distance_m;
             esdf_voxel.parent.setZero();
             raise_.push(global_index);
             num_raise++;
@@ -283,8 +269,8 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
 
       esdf_voxel.observed = true;
       esdf_voxel.hallucinated = false;
-    }
-  }
+    }//结束遍历这个block中的所有voxel
+  }//结束遍历所有的block 多个voxel组成了block
 
   propagate_timer.Stop();
   VLOG(3) << "[ESDF update]: Lower: " << num_lower << " Raise: " << num_raise
@@ -299,7 +285,10 @@ void EsdfIntegrator::updateFromTsdfBlocks(const BlockIndexList& tsdf_blocks,
   update_timer.Stop();
 
   esdf_timer.Stop();
-}
+}//end function updateFromTsdfBlocks
+
+
+
 
 // The raise set is always empty in batch operations.
 void EsdfIntegrator::processRaiseSet() {

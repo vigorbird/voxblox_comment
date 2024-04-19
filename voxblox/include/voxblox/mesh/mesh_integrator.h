@@ -131,8 +131,7 @@ class MeshIntegrator {
 
   /// Generates mesh from the tsdf layer.
   //在我们看的代码流程里 输入的两个参数都是bool值
-  void generateMesh(bool only_mesh_updated_blocks, 
-                  bool clear_updated_flag) {
+  void generateMesh(bool only_mesh_updated_blocks, bool clear_updated_flag) {
     
     CHECK(!clear_updated_flag || (sdf_layer_mutable_ != nullptr))
         << "If you would like to modify the updated flag in the blocks, please "
@@ -266,6 +265,7 @@ class MeshIntegrator {
                  << block_index.transpose();
       return;
     }
+    //1.提取出这个block中的mesh信息
     extractBlockMesh(block, mesh);//整个代码就这里调用了这个函数，//非常重要的函数！！！！！
     // Update colors if needed.
     if (config_.use_color) {//默认这个参数是true
@@ -394,7 +394,7 @@ class MeshIntegrator {
     for (size_t i = 0; i < mesh->vertices.size(); i++) {
       
       const Point& vertex = mesh->vertices[i];
-      VoxelIndex voxel_index = block.computeVoxelIndexFromCoordinates(vertex);//更具点的坐标计算得到对应的voxel坐标
+      VoxelIndex voxel_index = block.computeVoxelIndexFromCoordinates(vertex);//根据点的坐标计算得到对应的voxel坐标
       if (block.isValidVoxelIndex(voxel_index)) {
         //mesh顶点->voxel坐标->对应voxel数据
         const VoxelType& voxel = block.getVoxelByVoxelIndex(voxel_index);//

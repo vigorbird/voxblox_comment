@@ -5,6 +5,7 @@
 
 namespace voxblox {
 
+//这个构造函数会调用下面的构造函数
 EsdfServer::EsdfServer(const ros::NodeHandle& nh,
                        const ros::NodeHandle& nh_private)
     : EsdfServer(nh, nh_private, getEsdfMapConfigFromRosParam(nh_private),
@@ -20,8 +21,7 @@ EsdfServer::EsdfServer(const ros::NodeHandle& nh,
                        const TsdfMap::Config& tsdf_config,
                        const TsdfIntegratorBase::Config& tsdf_integrator_config,
                        const MeshIntegratorConfig& mesh_config)
-    : TsdfServer(nh, nh_private, tsdf_config, tsdf_integrator_config,
-                 mesh_config),
+    : TsdfServer(nh, nh_private, tsdf_config, tsdf_integrator_config, mesh_config),
       clear_sphere_for_planning_(false),
       publish_esdf_map_(false),
       publish_traversable_(false),
@@ -29,35 +29,29 @@ EsdfServer::EsdfServer(const ros::NodeHandle& nh,
       incremental_update_(true),
       num_subscribers_esdf_map_(0) {
   // Set up map and integrator.
-  esdf_map_.reset(new EsdfMap(esdf_config));
+  esdf_map_.reset(new EsdfMap(esdf_config));//简单设置一些参数
   esdf_integrator_.reset(new EsdfIntegrator(esdf_integrator_config,
                                             tsdf_map_->getTsdfLayerPtr(),
-                                            esdf_map_->getEsdfLayerPtr()));
+                                            esdf_map_->getEsdfLayerPtr()));//简单设置一些参数
 
-  setupRos();
+  setupRos();//非常重要的函数！！！！！！！
 }
 
 void EsdfServer::setupRos() {
   // Set up publisher.
-  esdf_pointcloud_pub_ =
-      nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("esdf_pointcloud",
-                                                              1, true);
-  esdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
-      "esdf_slice", 1, true);
-  traversable_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >(
-      "traversable", 1, true);
+  esdf_pointcloud_pub_ =  nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("esdf_pointcloud", 1, true);
+  esdf_slice_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >( "esdf_slice", 1, true);
+  traversable_pub_ = nh_private_.advertise<pcl::PointCloud<pcl::PointXYZI> >("traversable", 1, true);
 
-  esdf_map_pub_ =
-      nh_private_.advertise<voxblox_msgs::Layer>("esdf_map_out", 1, false);
+  esdf_map_pub_ = nh_private_.advertise<voxblox_msgs::Layer>("esdf_map_out", 1, false);
 
   // Set up subscriber.
   esdf_map_sub_ = nh_private_.subscribe("esdf_map_in", 1,
-                                        &EsdfServer::esdfMapCallback, this);
+                                        &EsdfServer::esdfMapCallback, this);//好像这个回调函数就是接收到了esdf地图，然后将其序列化阿松出去
 
   // Whether to clear each new pose as it comes in, and then set a sphere
   // around it to occupied.
-  nh_private_.param("clear_sphere_for_planning", clear_sphere_for_planning_,
-                    clear_sphere_for_planning_);
+  nh_private_.param("clear_sphere_for_planning", clear_sphere_for_planning_, clear_sphere_for_planning_);
   nh_private_.param("publish_esdf_map", publish_esdf_map_, publish_esdf_map_);
 
   // Special output for traversable voxels. Publishes all voxels with distance
@@ -68,13 +62,11 @@ void EsdfServer::setupRos() {
                     traversability_radius_);
 
   double update_esdf_every_n_sec = 1.0;
-  nh_private_.param("update_esdf_every_n_sec", update_esdf_every_n_sec,
-                    update_esdf_every_n_sec);
+  nh_private_.param("update_esdf_every_n_sec", update_esdf_every_n_sec, update_esdf_every_n_sec);
 
   if (update_esdf_every_n_sec > 0.0) {
-    update_esdf_timer_ =
-        nh_private_.createTimer(ros::Duration(update_esdf_every_n_sec),
-                                &EsdfServer::updateEsdfEvent, this);
+    update_esdf_timer_ =  nh_private_.createTimer(ros::Duration(update_esdf_every_n_sec),
+                                                  &EsdfServer::updateEsdfEvent, this);//比价重要的函数！！
   }
 }
 
@@ -101,6 +93,7 @@ void EsdfServer::publishSlices() {
   esdf_slice_pub_.publish(pointcloud);
 }
 
+//这个函数好像没有被使用！！！
 bool EsdfServer::generateEsdfCallback(
     std_srvs::Empty::Request& /*request*/,      // NOLINT
     std_srvs::Empty::Response& /*response*/) {  // NOLINT
@@ -189,6 +182,8 @@ bool EsdfServer::loadMap(const std::string& file_path) {
              kMultipleLayerSupport, esdf_map_->getEsdfLayerPtr());
 }
 
+
+//esdf的入口函数！！！
 void EsdfServer::updateEsdf() {
   if (tsdf_map_->getTsdfLayer().getNumberOfAllocatedBlocks() > 0) {
     const bool clear_updated_flag_esdf = true;
@@ -196,6 +191,7 @@ void EsdfServer::updateEsdf() {
   }
 }
 
+//好像这个函数没有被使用
 void EsdfServer::updateEsdfBatch(bool full_euclidean) {
   if (tsdf_map_->getTsdfLayer().getNumberOfAllocatedBlocks() > 0) {
     esdf_integrator_->setFullEuclidean(full_euclidean);
@@ -225,16 +221,15 @@ void EsdfServer::newPoseCallback(const Transformation& T_G_C) {
   }
 
   timing::Timer block_remove_timer("remove_distant_blocks");
-  esdf_map_->getEsdfLayerPtr()->removeDistantBlocks(
-      T_G_C.getPosition(), max_block_distance_from_body_);
+  esdf_map_->getEsdfLayerPtr()->removeDistantBlocks( T_G_C.getPosition(), max_block_distance_from_body_);
   block_remove_timer.Stop();
 }
 
 void EsdfServer::esdfMapCallback(const voxblox_msgs::Layer& layer_msg) {
   timing::Timer receive_map_timer("map/receive_esdf");
 
-  bool success =
-      deserializeMsgToLayer<EsdfVoxel>(layer_msg, esdf_map_->getEsdfLayerPtr());
+  //搜索 deserializeMsgToLayer 函数
+  bool success = deserializeMsgToLayer<EsdfVoxel>(layer_msg, esdf_map_->getEsdfLayerPtr());
 
   if (!success) {
     ROS_ERROR_THROTTLE(10, "Got an invalid ESDF map message!");

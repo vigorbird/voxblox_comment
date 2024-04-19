@@ -249,9 +249,7 @@ void TsdfServer::processPointCloudMessageAndInsert( const sensor_msgs::PointClou
       icp_corrected_transform_.setIdentity();
     }
     static Transformation T_offset;
-    const size_t num_icp_updates =
-        icp_->runICP(tsdf_map_->getTsdfLayer(), points_C,
-                     icp_corrected_transform_ * T_G_C, &T_G_C_refined);
+    const size_t num_icp_updates = icp_->runICP(tsdf_map_->getTsdfLayer(), points_C, icp_corrected_transform_ * T_G_C, &T_G_C_refined);
     if (verbose_) {
       ROS_INFO("ICP refinement performed %zu successful update steps",
                num_icp_updates);
@@ -314,7 +312,7 @@ void TsdfServer::processPointCloudMessageAndInsert( const sensor_msgs::PointClou
 
   // Callback for inheriting classes.
   newPoseCallback(T_G_C);//do nothing
-}//
+}//end fucntion processPointCloudMessageAndInsert
 
 // Checks if we can get the next message from queue.
 bool TsdfServer::getNextPointcloudFromQueue( std::queue<sensor_msgs::PointCloud2::Ptr>* queue,
@@ -405,6 +403,7 @@ void TsdfServer::integratePointcloud(const Transformation& T_G_C,
                                      const Colors& colors,
                                      const bool is_freespace_pointcloud) {
   CHECK_EQ(ptcloud_C.size(), colors.size());
+  //作者这里提供了三种子类来实现
   tsdf_integrator_->integratePointCloud(T_G_C, ptcloud_C, colors,
                                         is_freespace_pointcloud);
 }

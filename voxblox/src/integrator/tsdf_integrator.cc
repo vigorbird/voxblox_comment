@@ -104,11 +104,13 @@ TsdfVoxel* TsdfIntegratorBase::allocateStorageAndGetVoxelPtr(const GlobalIndex& 
 
   // If no block at this location currently exists, we allocate a temporary
   // voxel that will be merged into the map later
+  //如果这个block不存在 那么需要创建一个block
   if (*last_block == nullptr) {
     // To allow temp_block_map_ to grow we can only let one thread in at once
     std::lock_guard<std::mutex> lock(temp_block_mutex_);
 
     //temp_block_map_ = std:unordered_map<Eigen::Vector3i, BlockType::Ptr>
+    //temp_block_map_这个变量子处理完每帧点云后会清空
     typename Layer<TsdfVoxel>::BlockHashMap::iterator it = temp_block_map_.find(block_idx);
     if (it != temp_block_map_.end()) {
       *last_block = it->second;
@@ -532,7 +534,7 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
     // start_voxel_subsampling_factor times higher then the voxel size.
 
     //GlobalIndex  = matrix<int64_t,3,1>
-    //3.获取global的id
+    //3.获取这个点global的voxel id
     GlobalIndex global_voxel_idx;
     //start_voxel_subsampling_factor = 2.0
     global_voxel_idx = getGridIndexFromPoint<GlobalIndex>(point_G, 
@@ -558,12 +560,13 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
 
     Block<TsdfVoxel>::Ptr block = nullptr;
     BlockIndex block_idx;
-    //在这条射线上进行遍历！
+    //然后遍历在这条射线上的所有voxel
     while (ray_caster.nextRayIndex(&global_voxel_idx)) {
       // Check if the current voxel has been seen by any ray cast this scan.
       // If it has increment the consecutive_ray_collisions counter, otherwise
       // reset it. If the counter reaches a threshold we stop casting as the
       // ray is deemed to be contributing too little new information.
+      //注意voxel_observed_approx_set_是全局变量， 每帧数据到来之后都会清空
       if (!voxel_observed_approx_set_.replaceHash(global_voxel_idx)) {
         ++consecutive_ray_collisions;
       } else {
@@ -578,11 +581,13 @@ void FastTsdfIntegrator::integrateFunction(const Transformation& T_G_C,
       TsdfVoxel* voxel = allocateStorageAndGetVoxelPtr(global_voxel_idx, 
                                                         &block, &block_idx);
 
-      const float weight = getVoxelWeight(point_C);//3d点越远则权重越小,小函数 point_C = 3d点在载体坐标系下的坐标
+      const float weight = getVoxelWeight(point_C);//3d点越远则权重越小,小函数，point_C = 3d点在载体坐标系下的坐标
 
       //6. 本文件搜索 TsdfIntegratorBase::updateTsdfVoxel
+      //增量式更新这个voxle对应的权重，距离和颜色
       updateTsdfVoxel(origin, point_G, global_voxel_idx, color, weight, voxel); //非常重要的函数！！！！！！!!!!!
     }//end 在这条射线上进行遍历
+
   }//end while
 }//end function  integrateFunction
 
