@@ -103,8 +103,7 @@ SimulationServer::SimulationServer(
   tsdf_test_.reset(new Layer<TsdfVoxel>(voxel_size_, voxels_per_side_));
   esdf_test_.reset(new Layer<EsdfVoxel>(voxel_size_, voxels_per_side_));
 
-  tsdf_integrator_.reset(
-      new MergedTsdfIntegrator(tsdf_integrator_config, tsdf_test_.get()));
+  tsdf_integrator_.reset(new MergedTsdfIntegrator(tsdf_integrator_config, tsdf_test_.get()));
 
   EsdfIntegrator::Config esdf_integrator_config_copy = esdf_integrator_config;
   esdf_integrator_config_copy.clear_sphere_radius = min_dist_;

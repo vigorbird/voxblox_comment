@@ -403,7 +403,7 @@ void TsdfServer::integratePointcloud(const Transformation& T_G_C,
                                      const Colors& colors,
                                      const bool is_freespace_pointcloud) {
   CHECK_EQ(ptcloud_C.size(), colors.size());
-  //作者这里提供了三种子类来实现
+  //作者这里提供了三种子类来实现 merge fast和 simple， 其中merge效果
   tsdf_integrator_->integratePointCloud(T_G_C, ptcloud_C, colors,
                                         is_freespace_pointcloud);
 }

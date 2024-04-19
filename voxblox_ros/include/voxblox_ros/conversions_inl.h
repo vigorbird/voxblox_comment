@@ -44,8 +44,7 @@ template <typename VoxelType>
 bool deserializeMsgToLayer(const voxblox_msgs::Layer& msg,
                            Layer<VoxelType>* layer) {
   CHECK_NOTNULL(layer);
-  return deserializeMsgToLayer<VoxelType>(
-      msg, static_cast<MapDerializationAction>(msg.action), layer);
+  return deserializeMsgToLayer<VoxelType>( msg, static_cast<MapDerializationAction>(msg.action), layer);
 }
 
 template <typename VoxelType>
